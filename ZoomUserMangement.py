@@ -784,8 +784,9 @@ def onListSelect(event):
 
 def testdata():
     #Used to validate if recordings is returning appropriate data
-    get_user_scim2_data('pwOWVVs-TnKFyYH2iBlp0A')
-    rec = check_user_recording_count('pwOWVVs-TnKFyYH2iBlp0A')
+    userID = ""
+    get_user_scim2_data(userID)
+    rec = check_user_recording_count(userID)
     input("Press Enter to continue...")
     print ("Cloud Recording Count Test: {}".format(rec))
     
