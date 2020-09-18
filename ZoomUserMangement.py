@@ -22,27 +22,45 @@ from tkinter import filedialog
 
 import jwt
 
+
+cancelAction = False
 DATE_CHECK = ""
-jwtToken = ""
-ACCESS_TOKEN = ""
-authHeader = {}
+fileLog = ""
 MAX_MONTHS = 8
 MAX_NUM = 1
 MAX_WEEKS = 52
 API_ENDPOINT_USER_LIST = 'https://api.zoom.us/v2/users'
 API_GROUP_LIST = 'https://api.zoom.us/v2/groups'
 API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
+USER_DB_FILE = "ZoomRetrievedUserList.csv"
+EMAIL_FILE = 'email-list.csv'
 
+
+dateStr=\
+    {
+        'std':'%m/%d/%Y %H:%M:%S',
+        'file':'%Y-%m-%dT%H-%M-%S',
+        '12h':'%m/%d/%Y %I:%M:%S %p %Z',
+        'epoch':'%Y-%m-%dT%H:%M:%S%Z',
+        'calendar': "%Y-%m-%d",
+
+    }
+
+headerURL = 'https://api.zoom.us/'
 apiURL =\
     {
-        'users': 'https://api.zoom.us/v2/users',
-        'groups': 'https://api.zoom.us/v2/groups',
-        'scim2': 'https://api.zoom.us/scim2/Users/@',
-        'plan': 'https://api.zoom.us/v2/accounts/@/plans/usage',
-        'account':'https://api.zoom.us/v2/accounts/@',
-        'roles':'https://api.zoom.us/v2/roles',
-        'rolesList':'https://api.zoom.us/v2/roles/@/members',
-        'subaccount':'https://api.zoom.us/v2/accounts'
+        'users': 'v2/users',
+        'groups': 'v2/groups',
+        'scim2': 'scim2/Users/@',
+        'plan': 'accounts/@/plans/usage',
+        'account':'v2/accounts/@',
+        'roles':'v2/roles',
+        'rolesList':'v2/roles/@/members',
+        'meetings':'v2/users/@/meetings',
+        'subaccount':'v2/accounts',
+        'recording':'v2/users/@/recordings',
+        'settings':'v2/users/@/settings',
+        'groupSettings':'v2/groups/@/settings'
     }
 
 
@@ -54,10 +72,17 @@ def logging(text):
     global logData
     global listbox
     global root
+    global fileLog
+    
+    if listbox.size() == 0:
+        today = datetime.datetime.now()
+        fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
+        
     logData.set(text)
     listbox.insert(0, text)
     print(f"Log:  {text}")
     root.update()
+    logSave()
 
 def PrintException():
     exc_type, exc_obj, tb = sys.exc_info()
@@ -69,21 +94,50 @@ def PrintException():
     logging(f"++Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}")
 
 def logSave():
+
     try:
-        file = "ZoomAppLog.txt"
-        with open(file, 'w') as f:
+        with open(fileLog, 'w') as f:
             f.write(''.join(listbox.get(0, END)))
             f.write('\n')
-            logging(f'Log File Saved: {file}')
     except Exception as e:
-        logging(f"Error saving log: {e}")
+        print(f'Error saving file {e}')
+        
+def JWT_Token2(key,secret, leaseTime = 2): 
+    authHeader = ""
+    
+    try:
+        today = datetime.datetime.now()
+        seconds = time.time()
+        # Seconds since epoch
 
-def JWT_Token(key,secret):    
+        expTime = seconds + leaseTime
+        #logging (f"JWT Token generated, token Expiration {leaseTime}s: {expTime},{datetime.datetime.strftime(expTime, dateStr['epoch'])}")
+        
+        payload =\
+                {
+                    "iss":key,
+                    "exp":expTime
+                }
+        
+        encoded_jwt = jwt.encode(payload, secret, algorithm='HS256')
+        
+        jwtToken = encoded_jwt.decode("utf-8")
+        
+        accessToken = f'Bearer {jwtToken}'
+        authHeader = {'Authorization': accessToken}
+    
+    except Exception as e:
+        logging(f"Error in JWT Token creation: {e}")
+    return authHeader
+
+def JWT_Token(key,secret, leaseTime = 2):    
+    
     TIMESTRING_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
     today = datetime.datetime.now()
-    leaseTime = 6000 + (60*60*7)
     expTime = today + datetime.timedelta(seconds=leaseTime)
-    logging (f"Token Expiration: {expTime},{datetime.datetime.strftime(expTime, TIMESTRING_FORMAT)}")
+    
+    logging (f"Token Start: {today}")
+    logging (f"Token Expiration: {expTime}")
     
     payload =\
             {
@@ -94,10 +148,9 @@ def JWT_Token(key,secret):
     encoded_jwt = jwt.encode(payload, secret, algorithm='HS256')
     
     return encoded_jwt.decode("utf-8")
-    
-def csvOpen():
-    global userDB
-    global userInactiveDB
+
+def csvOpen2(fileDefault=""):
+    csvData = []
     
     try:
         root.filename = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
@@ -105,8 +158,41 @@ def csvOpen():
         fileName = root.filename
     except:
         PrintException()
-        fileName = 'InactiveZoomUsers.csv'
+        fileName = fileDefault     
+
+    try:
+        with open(fileName) as file:
+            readFile = csv.reader(file, delimiter=',')
+            
+            for row in readFile:
+                csvData.append(row)
+                logging(f'Read data: {row[2]}')
+                #fieldnames = ['flag','userID','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
+            
+            logging(f'Number of Entries opened: {len(userDB)}')
+            
+    except Exception as e:
+        logging(f'Error in reading file: {e}')
+
+
+
+def csvOpen():
+    global userDB
+    global userInactiveDB
+    global cancelAction
     
+    
+    try:
+        root.filename = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
+        logging (f"Open File: {root.filename}")
+        fileName = root.filename
+    except:
+        PrintException()
+        fileName = USER_DB_FILE
+    
+    
+    cancelAction = False
+    btnCancel["state"] = "normal"
     
     try:
         with open(fileName) as csvfile:
@@ -114,6 +200,9 @@ def csvOpen():
             
             userDB.clear()     
             for row in readCSV:
+                if cancelAction is True:
+                    cancelAction = False
+                    break
                 userDB.append(row)
                 logging(f'Read data: {row[2]}')
                 #fieldnames = ['flag','userID','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
@@ -128,7 +217,7 @@ def csvOpen():
     
     btnDeleteInactive["state"] = "normal"
     btnOpenDelete["state"] = "normal"
-    
+    btnSettingsStats["state"] = "normal"
     
 
 def csvOpenDelete():
@@ -142,10 +231,10 @@ def csvOpenDelete():
         fileName = root.filename
     except:
         PrintException()
-        fileName = 'email-list.csv'
+        fileName = EMAIL_FILE
         
     try:
-        with open('email-list.csv') as csvfile:
+        with open(EMAIL_FILE) as csvfile:
             readCSV = csv.reader(csvfile, delimiter=',')
             #csvLen = len(readCSV)
             
@@ -170,7 +259,7 @@ def csvOpenDelete():
         logging(f'Error in reading Email file: {e}')        
 
 
-def send_REST_request(apiType, data=""):
+def send_REST_request(apiType, data="", body= None, param = None, rType = "get", note=""):
     '''
         Description:  Sends request to Zoom to pull more detailed info
                       not available in webhook event payload 
@@ -186,8 +275,39 @@ def send_REST_request(apiType, data=""):
     
     tokenError = True
     
+    try:
+        API_KEY = eAPIKey.get()
+    except Exception as e:
+        print (f"API Key Error:{e}")
+        API_KEY = ""
+        
+    try:
+        API_SECRET = eAPISecret.get()
+    except Exception as e:
+        print (f"API Secret error:{e}")
+        API_SECRET = ""
+     
+     
+    authHeader = JWT_Token2(API_KEY,API_SECRET,1.5)   
+
+    #print(authHeader)    
+    
+    delimiter = ""
+    if param is not None:
+        delimiter = "?"
+        ampersand = ""
+        for key in param:
+            if param[key] != '' and param[key] != None:
+                    delimiter = "{}{}{}={}".format(delimiter,ampersand,key,param[key])
+                    ampersand = "&"  
+        
     if authHeader != '':
-        url = apiURL[apiType]
+        
+        if apiType in apiURL:
+            url = f'{headerURL}{apiURL[apiType]}{delimiter}'
+        else:
+            url = f'{headerURL}{apiType}{delimiter}'
+        
         try:
             if '@' in url and data != "":
                 url = url.replace("@", data)
@@ -197,21 +317,37 @@ def send_REST_request(apiType, data=""):
         api = f"{url}"
 
         start = time.time()
+        
+        print(f'Sending HTTP REST Request {api}, Body:{body}')   
+        
         try:
-            response = requests.get(url=api, headers=authHeader)
+            if rType == "get":
+                if body is not None:
+                    response = requests.get(url=api, json=body, headers=authHeader)
+                else:
+                    response = requests.get(url=api, headers=authHeader)
+            elif rType == "put":
+                response = requests.put(url=api, json=body, headers=authHeader)
+            elif rType == "patch":
+                response = requests.patch(url=api, json=body, headers=authHeader)
+            elif rType == "delete":
+                logging(f"Attempting to delete user: {note}")
+                response = requests.delete(url=api, headers=authHeader)
+                logging(f'Deleting {info}: {response}')
         except Exception as e:
             logging(f'Send HTTP REST Request {api}, Response: {response}, Error:{e}')     
-        try:       
+        try:
             status = response.status_code
             respData = response.json()
+            print(f'Received HTTP REST Request {respData}')
             
             if status == 404:
                 try:
                     return respData['detail']
                 except:
                     return "Error"
-            elif status != 200 or 'code' in respData:
-                logging('Send JWT Token error: Code:{} Message:{}'.format(respData['code'],respData['message']))
+            elif 'code' in respData:
+                logging('Send JWT Token error: Code:{} Message:{}'.format(respData['code'],respData['message']))          
                 return "{}\n".format(respData['message'])
             else:
                 tokenError = False
@@ -221,6 +357,41 @@ def send_REST_request(apiType, data=""):
         
     return respData
 
+
+def get_user_meetings(userID):
+    meetings = None
+    try:
+        meetingsAll = send_REST_request('meetings',data = userID, param = {'type':'scheduled','page_size':1})
+        meetings = send_REST_request('meetings',data = userID, param = {'type':'upcoming','page_size':300})
+        print (f"Meeting Data: {meetings}")
+    except Exception as e:
+        logging(f"Error getting meeting data {e}")
+    
+    meetingCnt = 0
+    meetingScheduled = 0
+    meetingAllCnt = 0
+    if meetingsAll is not None:
+        try:
+            meetingsAllCnt = meetingsAll['total_records']
+        except Exception as e:
+            PrintException()
+            logging(f'!Error getting all meeting count:{e}')
+            
+    if meetings is not None:
+        try:
+            meetingCnt = meetings['total_records']
+            
+        except Exception as e:
+            PrintException()
+            logging(f'!Error getting meeting count:{e}')        
+        try:     
+            for record in meetings["meetings"]:
+                if record['type'] == 2 or record['type'] == 8:
+                    meetingScheduled += 1
+        except Exception as e:
+            PrintException()
+            logging(f'!Error getting meeting data: {e}')
+    return (meetingsAllCnt, meetingCnt, meetingScheduled)
 
 def get_subaccount_data():
     try:
@@ -268,22 +439,32 @@ def UpdateUser_Info():
     emailIdx = 1
     userIDIdx = 2
     licenseIdx =  8
-    userDBdef = ["Flagged","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
     
-    userEmail = eEmail.get()
+   
     try:
         for user in userDB:
-            if user[emailIdx] == userEmail:    
+            if user[emailIdx] == userEmail:
+                print(f"{user}")
                 for item in user:
                     try:
                         key = userDBdef[user.index(item)]    
                     except Exception as e:
                         key = f"{e}"
+                    
                     logging(f'{key}: {item}')
                 try:
                     logging(f'Recordings: {check_user_recording_count(user[2])}')
                 except Exception as e:
-                    logging(f'Recordings: {e}')
+                    logging(f'Recordings in the last {eRecMonths.get()} months: {e}')
+                
+                try:
+                    (meetingsAll, meetingsUpcoming, meetingsSched) = get_user_meetings(user[2])
+                    logging(f'All Time Meeting Total:{meetingsAll}')
+                    logging(f'Upcoming Meeting Total:{meetingsUpcoming}')
+                    logging(f'Upcoming Scheduled Meetings:{meetingsSched}')
+                except Exception as e:
+                    logging(f'Upcoming Meetings {e}')
                 
                 logging(f'User Info: {userEmail}')
         else:
@@ -330,7 +511,6 @@ def UpdateUser_Licensed():
             break            
     
 def xref_UpdateUser(userList):
-    ##@@TODO
     emailIdx = 1
     userIDIdx = 2
     monthsIdx = 6
@@ -346,16 +526,18 @@ def xref_UpdateUser(userList):
     print(f"\nData:::\n{userList}\n{userDB}")
     userEmails = len(userList) - 1
 
-    try:
-        monthsActive = int(eActiveUser.get())
-    except:
-        monthsActive = 0
+    monthsActive = None
+    recMonths = None
+    meetings = None
+    noDeletes = None
+    
 
-    try:
-        recMonths = int(eRecMonths.get())
-    except:
-        recMonths = 0
 
+  
+            
+    
+    chkParam = [False, False, False, False]
+        
     for email in userList:
         userCount += 1
         for user in userDB:
@@ -363,30 +545,60 @@ def xref_UpdateUser(userList):
                 userGroup = user[7]
                 userLicense = user[8]
                 months = user[9]
-                if months < recMonths:
-                    recordings = check_user_recording_count(user[userIDIdx])
                 
-                logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
-
-                if recordings == 0:
-                    try:
-                        
-                        if months > monthsActive:
-                            delete_users_list(user[userIDIdx], email)
-                        elif userLicense.lower() != 'basic':
-                            modify_user_license(user[userIDIdx],email, userLicense)
-                        else:
-                            logging("{} is not being deleted or modified due to recent activity.".format(email))     
-                    except Exception as e:
-                        logging(f'Error Deleting user: {e}')
-                else:
-                    try:
-                        if userLicense.lower() != 'basic':
-                            None
-                            #modify_user_license_scim2(user[userIDIdx],email, userLicense, userType="Basic")
-                    except Exception as e:
-                        logging(f'Error modifying user to Based: {e}')
+                if chkActivity == 1:
+                   try:
+                       monthsActive = int(eActiveUser.get())
+                   except:
+                       monthsActive = 0
+                   
+                   if months <= monthsActive:
+                       chkParam[0] = True
                             
+                if chkRec == 1:
+                    try:
+                        recMonths = int(eRecMonths.get())
+                    except:
+                        recMonths = 0
+                    
+                    if months < recMonths:
+                        recordings = check_user_recording_count(user[userIDIdx])
+                    
+                    if recordings > 0:
+                        chkParam[1] = True
+                   
+                    logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
+                    
+                if chkMeetings == 1:
+                    (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIDIdx])
+                    if meetingScheduled > 0:
+                        chkParam[2] = True
+                
+                if chkBasic == 1:
+                    chkParam[3] = True
+            
+                   
+                try:
+                    if True not in ckParam:
+                        delete_users_list(user[userIDIdx], email)
+                    elif chkParam[3] is True:
+                        chkParam[3] = False
+                        if True not in chkParam:
+                            modify_user_license(user[userIDIdx],email, 'Basic')
+                        else:
+                            logging(f"{email} is not being deleted or modified.")
+                    else:
+                        logging("{} is not being deleted or modified.".format(email))     
+                except Exception as e:
+                    logging(f'Error Updating User: {e}')
+            else:
+                try:
+                    if userLicense.lower() != 'basic':
+                        None
+                        #modify_user_license_scim2(user[userIDIdx],email, userLicense, userType="Basic")
+                except Exception as e:
+                    logging(f'Error modifying user to Based: {e}')
+                        
                 
                 logging(f"Deactivate: {email}")
             
@@ -400,7 +612,7 @@ def get_group_data():
     groupData = {}
         
     try:
-        groups = send_request(API_GROUP_LIST, sendData = None)
+        groups = send_REST_request('groups', rType = "get")
     except Exception as e:
         groups = None
         print(f'Exception:{e}')    
@@ -433,20 +645,24 @@ def get_group_data():
                 logging(f'Error in storing group data: {e}')
     return groupData
 
+def validate_user_modification(userID):
+    None
+    
+    
 def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
     api = f"https://api.zoom.us/v2/users/{userID}"
     
-    api = f"{api}?action=delete"
+    #api = f"{api}?action=delete"
     
     userDesc = f"{userEmail} will be updated to {userType}"
     
     data =\
         {
-            "type": 1
+            "type": userType
         }   
     
-    response = patch_request(api,body=data,info=userDesc)   
-
+    send_REST_request('users', data=userID, body=data, rType = "patch", note="")
+    
 
 def check_user_recording_count(userID):
     userRec = {}
@@ -472,21 +688,21 @@ def check_user_recording_count(userID):
         lastDay = (lastDate + relativedelta(day=31)).day
         monthEnd = prev_month_lastday.strftime("%Y-%m-{}".format(lastDay))
         try:
-            api = 'https://api.zoom.us/v2/users/{}/recordings'.format(userID)
-            #api = "{}?access_token={}".format(api,jwtToken)
-            api = '{}?to={}&from={}&page_size=1'.format(api,monthEnd,monthStart)
+            apiParam =\
+                     {
+                         'to':monthEnd,
+                         'from':monthStart,
+                         'page_size':1
+                     }
             
+            userRec = send_REST_request('recording', data=userID, param = apiParam, rType = "get")       
             
-            response = requests.get(url=api, headers=authHeader)        
+            try:
+                if userRec['total_records'] > 0:
+                    return userRec["total_records"]
+            except:
+                return 0
             
-            print("{}\n{}".format(api,response.text))
-            if response.status_code == 200:
-                try:
-                    userRec = response.json()
-                    if userRec['total_records'] > 0:
-                        return userRec["total_records"]
-                except Exception as e:
-                    logging("Error in recording check {}: {}".format(userRec,e))
         except Exception as e:
             logging ('Error in Request for Recording data {}: {}'.format(response, e))
             break
@@ -506,11 +722,11 @@ def modify_user_license_scim2(userID,userName, userCurrLicense, userType="Basic"
                  "userType":userType
              }                     
         try:      
-            logging("{userName} has {recordings} cloud recordings.")
+            logging(f"{userName} has {recordings} cloud recordings.")
         except Exception as e:
             None
         
-        put_request(userURL,data,f'Set {userName} to {userType} license')
+        send_REST_request('scim2', data=userID, param = "", rType = "put")
 
 def modify_user_scim2(userType, scim2data):
     ## @To Do
@@ -527,99 +743,29 @@ def modify_user_scim2(userType, scim2data):
                  "schemas":scim2data["schemas"],
                  "userType":userType
              }                     
-
-    put_request(userURL,data,f'Set {userName} to {userType}')
+    send_REST_request('scim2', data=userID, param = "", rType = "put", note = f'Set {userName} to {userType}')
     
 def delete_users_list(userID, userDesc):
     api = f"https://api.zoom.us/v2/users/{userID}"
-    
     api = f"{api}?action=delete"
     
-    
-    response = delete_request(api,userDesc)
-    
-    
-def delete_user_scim2(userStatus,userID,userType=""):
-    ##@@ToDo
+    send_REST_request(api, data="", param = "", rType = "delete", note = 'userDesc')
     
     
     
-    if userStatus.lower() == 'inactive':
-        userURL = f'{API_SCIM2_USER}/{userID}'
-        
-        #response = delete_request(userURL,)
-        response = requests.get(url=apiType, headers=authHeader) 
-        
         
 def get_user_scim2_data(userID):
     logging(f'Checking SCIM2 Data for {userID}')
     urn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
     
     try:
-        userURL = f'{API_SCIM2_USER}/{userID}'
-        
-        scim2_data = send_request(userURL, sendData = None)
-        
+        scim2_data = send_REST_request('scim2', data=userID, param = "", rType = "get")
         print(f'SCIM2 Response: {scim2_data}')
     except Exception as e:
         print(f'SCIM2 Exception:{e}')
         
     
     return scim2_data
-
-
-def put_request(url, data, info = ""):
-    response = ""
-    try:
-        response = requests.put(url, json=data, headers=authHeader)
-        respCode = response.status_code
-        logging(f'{info}:  {respCode}')
-    except Exception as e:
-        logging(f'Send Put Request {url}, {info} error:{e}')
-        
-        
-def patch_request(url, body="", info = ""):
-    response = ""
-    try:
-        response = requests.patch(url, json=body, headers=authHeader)
-        respCode = response.status_code
-        respMsg = response.text
-        logging(f'{info}:  {respCode}')
-        logging(f'{respMsg}')
-    except Exception as e:
-        logging(f'Send patch request {url}, {info} error:{e}')
-        
-def delete_request(url, info = ""):
-    response = ""
-    
-    
-    try:
-        response = requests.delete(url=url, headers=authHeader)
-        logging(f'Deleting {info}: {response}')
-    except Exception as e:
-        logging(f'Send Delete Request {url}, {info} error:{e}')
-        
-    
-def send_request(apiType, sendData = None):
-    response = ""
-    print ("Sending GET request for: {}".format(apiType))
-    try:
-        if sendData == None:
-            response = requests.get(url=apiType, headers=authHeader)
-        else:
-            api = "{}?".format(apiType)
-            ampersand = ""
-            for key in sendData:
-                if sendData[key] != '' and sendData[key] != None:
-                    api = "{}{}{}={}".format(api,ampersand,key,sendData[key])
-                    ampersand = "&"          
-            
-            response = requests.get(url=api, headers=authHeader)
-            
-    except Exception as e:
-        logging('Send Request {} error:{}'.format(apiType,e))
-        
-    return response.json()
 
 def get_plan_data(token,accountID):
     
@@ -650,7 +796,6 @@ def get_plan_data(token,accountID):
         monthEnd = prev_month_lastday.strftime("%Y-%m-{}".format(lastDay))
         try:
             api = 'https://api.zoom.us/v2/users/{}/recordings'.format(userID)
-            #api = "{}?access_token={}".format(api,jwtToken)
             api = '{}?to={}&from={}&page_size=1'.format(api,monthEnd,monthStart)
             
             
@@ -667,13 +812,98 @@ def get_plan_data(token,accountID):
         except Exception as e:
             logging ('Error in Request for Recording data {}: {}'.format(response, e))   
     return 0
+
+def proc_user_settings(data, group, email):
+    tally = {}
+    if data != {}:
+        try:
+            for category in data:
+                try:
+                    for setting in data[category]:
+                        try:
+                            for value in data[category][setting]:
+                                if value is list:
+                                    for item in value:
+                                        value = f"{value}, {item}"
+                                
+                                #fullname =f'{category}{setting}{value}'
+                                
+                                #if fullname in tally:
+                                #    tally[fullname] += 1
+                                #else:
+                                #    tally[fullname] = 1
+                                
+                                
+                                csvRow = {\
+                                    "Email": email,
+                                    "Group": group,
+                                    "Category":category,
+                                    "Setting":setting,
+                                    "Value":value,
+                                    }
+                                 
+                                return csvRow
+                        except Exception as e:
+                            print('Error in CSV flag data: {e}')
+                            None
+                except:
+                    PrintException()
+                    #None
+        except:
+            PrintException()
+            #None
+
+    csvRow = {\
+        "Email": email,
+        "Group": group,
+        "Category":"",
+        "Setting":"",
+        "Value":"",
+        }
+    return csvRow
+
+def get_user_settings():
+    global progress_var
+    global userDB
+    global cancelAction
     
-def get_user_data(token, groupsDict):
+    cancelAction = False
+    btnCancel["state"] = "normal"
+    fileName = "User Setting Tracking.csv"
+    try:
+        count = 0
+        with open(fileName, 'w', newline='') as csvFile:
+            writer = csv.DictWriter(csvFile, fieldnames = ["Group", "Category", "Setting","Value","Count"])
+            writer.writeheader()
+            
+            for user in userDB:
+                if cancelAction is True:
+                    cancelAction = False
+                    break
+                
+                count += 1
+                bar = int((userDB.index(user)/len(userDB))*100) 
+                progress_var.set(bar)
+                root.update_idletasks()
+                
+                userID = user[2]
+                email = user[3]
+                group = user[7]
+                logging(f'{count}% Retrieving {group}, {email} settings')
+                data = send_REST_request('settings', data = userID, rType = "get")
+                csvRow = proc_user_settings(user,group, email)
+                writer.writerow(csvRow)
+    except Exception as e:
+        logging (f'Error with creating file: {e}')
+                
+                
+def get_user_data(groupsDict):
     global progress_var
     global progress
     global root
     global userDB
     global userInactiveDB
+    global cancelAction
     # get total page count, convert to integer, increment by 1
     total_pages = None
     record_count = 0
@@ -681,8 +911,7 @@ def get_user_data(token, groupsDict):
     page_data = None
     data = None
     print ('Groups:  {}'.format(groupsDict))
-    print ('Token:  {}\nAPI_ENDPOINT: {}\nAUTH: {}'.format(token,API_ENDPOINT_USER_LIST,authHeader))
-    
+       
     pageSize = 1
     JSONData = {\
         'status':"",
@@ -694,7 +923,7 @@ def get_user_data(token, groupsDict):
             
 
     try:
-        page_data = send_request(API_ENDPOINT_USER_LIST,sendData = JSONData)
+        page_data = send_REST_request('users', param = JSONData, rType = "get")
     except Exception as e:
         page_data = None
         print('Exception:{}'.format(e))    
@@ -709,9 +938,9 @@ def get_user_data(token, groupsDict):
             #pageNumber = str(int(page_data['page_number']) + 1)
             recordsTotal = int(page_data['total_records']) + 1
             pageCount = int(recordsTotal / pageSize) + 1
-        except:
-            print('{}'.format(page_data))
-            logging(page_data['message'])
+        except Exception as e:
+            print(f'{page_data}\nError: {e}')
+            #logging(page_data['message'])
             total_pages = 0
             pageCount = 0
             recordsTotal = 0
@@ -732,12 +961,18 @@ def get_user_data(token, groupsDict):
         licenseCnt = {'total':{'Basic':0,'Licensed':0,'On-Prem':0,'None':0},'flagged':{'Basic':0,'Licensed':0,'On-Prem':0,'None':0}}
         todaysDate = datetime.datetime.now()
         try:
-            with open('InactiveZoomUsers.csv', 'w', newline='') as csvfile:
+            with open(USER_DB_FILE, 'w', newline='') as csvfile:
                 fieldnames = ['flag','user_id','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                                     
                 for page in range(0, int(pageCount)):
+                    
+                    if cancelAction is True:
+                        cancelAction = False
+                        break
+                    
+                    
                     flagUser = ['None','None']
                     startTime[cntTime] = time.time()
                     
@@ -753,8 +988,8 @@ def get_user_data(token, groupsDict):
                     
                     #logging("Pulling: {}".format(JSONData))
                     
-                    try:
-                        user_data = send_request(url,sendData = JSONData)
+                    try:         
+                        user_data = send_REST_request('users', param = JSONData, rType = "get")
                         
                         #user_data = requests.get(url=url, headers=authHeader).json()
                         #userInactive = [userID,userLoginMonths, userFirstName, userLastName]
@@ -849,12 +1084,15 @@ def get_user_data(token, groupsDict):
                                 elif userLicense == 3:
                                     userLicense = 'On-Prem'
                                 else:
-                                    userLicense = user['type']
+                                    userLicense = f'Undefined: {user["type"]}'
                                 
-                                if userLicense in licenseCnt['total']:
-                                    licenseCnt[userLicense] += 1
-                                else:
-                                    licenseCnt['total'][userLicense] = 1
+                                try:
+                                    if userLicense in licenseCnt['total']:
+                                        licenseCnt['total'][userLicense] += 1
+                                    else:
+                                        licenseCnt['total'][userLicense] = 1
+                                except Exception as e:
+                                    print (f"Error in license counting: {e}")
                                     
                             except:
                                 userLicense = 'None'    
@@ -950,6 +1188,7 @@ def get_user_data(token, groupsDict):
                 logging('Users Inactive: {}'.format(len(userInactiveDB)))
                 btnDeleteInactive["state"] = "normal"
                 btnOpenDelete["state"] = "normal"
+                btnSettingsStats["state"] = "normal"
                 
         except Exception as e:
             logging ('File Write Error, please close file it may be open in Excel\n{}'.format(e))
@@ -984,7 +1223,7 @@ def Relicense_Inactive():
         userName = "{}".format(userEmail)
         userLicense = userData[4]
         logging('Modifying: {}, {} License'.format(userName,userLicense))
-        modify_user_license_scim2(userID,userName, userLicense)
+        modify_user_license(userID,userName, userLicense)
         counter += 1
 
 def onListSelect(event):
@@ -1012,25 +1251,30 @@ def testdata():
     input("Press Enter to continue...")
     print ("Cloud Recording Count Test: {}".format(rec))
     
+    
+
+
+
 def callback():
     global listbox
     global userDB
+    global cancelAction
     
+    cancelAction = False
+    btnCancel["state"] = "normal"
     userDB.clear()
     listbox.delete(0,END)
     zoom_token_auth()
     groupsData = get_group_data()
     #testdata
     
-    data = get_user_data(jwtToken, groupsData)
+    data = get_user_data(groupsData)
 
 
 def zoom_token_auth():
-    global ACCESS_TOKEN
-    global authHeader    
     global MAX_MONTHS
     global MAX_NUM
-    global jwtToken
+ 
     global DATE_CHECK
     
     try:
@@ -1044,19 +1288,6 @@ def zoom_token_auth():
         MAX_NUM = 0
     
     try:
-        API_KEY = eAPIKey.get()
-    except:
-        API_KEY = ""
-        
-    try:
-        API_SECRET = eAPISecret.get()
-    except:
-        API_SECRET = ""
-     
-     
-    jwtToken = JWT_Token(API_KEY,API_SECRET)
-    
-    try:
         DATE_CHECK = datetime.datetime.strptime(eDate.get(), '%m/%d/%Y').date()
         print ("{}".format(DATE_CHECK))
     except Exception as e:
@@ -1065,19 +1296,64 @@ def zoom_token_auth():
     
     logging("Inactive Date:  {}".format(DATE_CHECK))
     
-    ACCESS_TOKEN = 'Bearer {}'.format(jwtToken)
-    
-    print(ACCESS_TOKEN)
-    authHeader = { 'Authorization': ACCESS_TOKEN }
-    print(authHeader)
 
+def cancelActions():
+    global cancelAction
+    
+    logging("Cancelling last request...")
+    cancelAction = True
+    btnCancel["state"] = "disabled"
+    
+    
 def pos(inc,val):
     global rowPos
+    
+    val = None
+    
     if inc == 0:
         rowPos = 0
     rowPos += inc
     return rowPos
 
+def btnTxtUpdates():
+    global btnOpenDeleteText
+    global btnDeleteInactiveText
+    
+    exclusions = []
+    if chkRec.get() == 1:
+        exclusions.append('Rec')
+    if chkMeetings.get() == 1:
+        exclusions.append('Meeting')
+    if chkActivity.get() == 1:
+        exclusions.append('Active')
+    exclusions = "/".join(exclusions)
+    
+    if len(exclusions) > 0:
+        scope = ''
+    else:
+        scope = ' all'
+    
+    if chkBasic.get() == 1:
+        inactiveTxt = f'Modify{scope} inactive users to Basic.  '
+        emailTxt = 'Modify users via CSV email list to Basic.  '
+        subAction = 'No Action'
+    else:
+        inactiveTxt = f'Delete{scope} inactive users. '
+        emailTxt = 'Delete users via CSV email list.'       
+        subAction = 'To Basic'
+        
+    
+
+    
+    if len(exclusions) > 0:
+        btnDeleteInactiveText.set(f'{inactiveTxt}{subAction}: {exclusions}')
+        btnOpenDeleteText.set(f'{emailTxt}{subAction}: {exclusions}')         
+    else:
+        btnDeleteInactiveText.set(f'{inactiveTxt}')
+        btnOpenDeleteText.set(f'{emailTxt}')                 
+    
+    mainloop()
+    root.update_idletasks()
 
 rowPos = 0
 colPos = 0
@@ -1086,13 +1362,13 @@ colPosMax = 6
 # Build Primary Window
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
-root.title('Zoom User Enterprise Scan v0.5.4')
+root.title('Zeus Tool:  Zoom Enterprise User Scan Tool v0.6.8')
 #root.withdraw()
 
 #Display Title within application
 frameStep1 = LabelFrame(root, padx=5, pady = 5, text = "Required Info")
 frameButtons = LabelFrame(root,text = "Actions")
-frameStep2 = LabelFrame(root, padx = 5, pady =5, text="Options that prevent user deletion")
+frameStep2 = LabelFrame(root, padx = 5, pady =5, text="Options that prevent user updates")
 frameUser = LabelFrame(root, text = "User Configuration")
 frameLog = LabelFrame(root)
 
@@ -1104,7 +1380,6 @@ frameLog.grid(\
         row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
 frameUser.grid(\
         row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
-
 frameStep2.grid(\
         row = pos(0,rowPos), column = colPos + 2, columnspan = int(colPosMax/3), sticky = NSEW)
 
@@ -1122,6 +1397,7 @@ eLbl4 = Label(frameStep1, text="Date to Be considered inactive user")
 
 eLbl1.grid(row = pos(1,rowPos), column= colPos)
 eAPIKey.grid(row = rowPos, column = colPos+1)
+
 eLbl2.grid(row = pos(1,rowPos), column = colPos)
 eAPISecret.grid(row = rowPos, column = colPos + 1)
 eLbl3.grid(row = pos(1,rowPos), column = colPos)
@@ -1153,17 +1429,21 @@ eAPIKey.focus_set()
 
 
 
+btnOpenDeleteText = StringVar()
+btnDeleteInactiveText = StringVar()
 
-btn = Button(frameButtons, text="Retrieve Zoom User Data", width=60, command=callback)
-btnOpen = Button(frameButtons, text="Open Existing User Data", width=60, command=csvOpen)
-btnOpenDelete = Button(frameButtons, text="Delete Users with Email list file", width=60, command=csvOpenDelete, state=DISABLED)
-btnDeleteInactive = Button(frameButtons, text="Relicense All Inactive", width=60, command=Relicense_Inactive, state=DISABLED)
+btn = Button(frameButtons, text="Retrieve User Data", width=30, command=callback)
+btnOpen = Button(frameButtons, text="Open User Data", width=30, command=csvOpen)
+btnOpenDelete = Button(frameButtons, textvariable=btnOpenDeleteText, width=60, command=csvOpenDelete, state=DISABLED)
+btnDeleteInactive = Button(frameButtons, textvariable=btnDeleteInactiveText, width=60, command=Relicense_Inactive, state=DISABLED)
+btnSettingsStats = Button(frameButtons, text="Backup User Settings (1.5s per user))", width=60, command=get_user_settings, state=DISABLED)
+
 
 btn.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
-btnOpen.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
-btnOpenDelete.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
-btnDeleteInactive.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
-
+btnOpen.grid(column = colPos+1, row = rowPos, sticky = NSEW)
+btnOpenDelete.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
+btnDeleteInactive.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
+btnSettingsStats.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
 
 #btnDeleteInvalid = Button(root, text="Delete All Invalid Users", width=30, command=callback, state=DISABLED)
 #btnDeleteInvalid.pack()
@@ -1173,16 +1453,28 @@ btnDeleteInactive.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
 #btnOpen.pack()
 
 
-chkBasic = IntVar()
-chkbxBasic = Checkbutton(frameStep2,text='Change user to Basic (No Deletes)', variable = chkBasic)
+chkBasic = IntVar(value=1)
+chkbxBasic = Checkbutton(frameStep2,text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates)
 chkbxBasic.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxBasic.config(bd=2)
 
 
+chkMeetings = IntVar()
+chkbxMeetings = Checkbutton(frameStep2,text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates)
+chkbxMeetings.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
+chkbxMeetings.config(bd=2)
+
+
 chkRec = IntVar()
-chkbxRecordings = Checkbutton(frameStep2,text='Check for Cloud Recordings', variable = chkRec)
+chkbxRecordings = Checkbutton(frameStep2,text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates)
 chkbxRecordings.grid(row = pos(1,rowPos), column = colPos + 2, sticky = W)
 chkbxRecordings.config(bd=2)
+
+chkActivity = IntVar()
+chkbxActivity = Checkbutton(frameStep2,text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates)
+chkbxActivity.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
+chkbxActivity.config(bd=2)
+
 eLbl8 = Label(frameStep2, text="No. of months to check for recordings")
 eLbl8.grid(row = pos(1,rowPos), column = colPos + 2)
 eRecMonths = Entry(frameStep2)
@@ -1221,10 +1513,15 @@ btnUpdateLicensed.grid(row = rowPos, column = colPos + 3)
 btnUpdateBasic = Button(frameUserBtn, text="Basic", width=7, command=UpdateUser_Basic)
 btnUpdateBasic.grid(row = rowPos, column = colPos + 4)
 
+
+btnCancel = Button(frameLog, text="Cancel", width=10, command=cancelActions, state=DISABLED)
+btnCancel.grid(row = 1, column = 1, sticky = W)
 progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
 progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
-progress.grid(row = 1, columnspan = 6, column = 1)
+progress.grid(row = 1, column = 1, sticky = E)
 
+
+    
 
 
 logData = StringVar(frameLog)
@@ -1253,6 +1550,6 @@ listbox.config(yscrollcommand = scrollbar.set)
 # we need to have a vertical view 
 scrollbar.config(command = listbox.yview)
 
-
+btnTxtUpdates()
 
 mainloop()
