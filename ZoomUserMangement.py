@@ -38,6 +38,7 @@ EMAIL_FILE = 'email-list.csv'
 
 dateStr=\
     {
+        'log':'%m/%d/%y %H:%M:%S.%f',
         'std':'%m/%d/%Y %H:%M:%S',
         'file':'%Y-%m-%dT%H-%M-%S',
         '12h':'%m/%d/%Y %I:%M:%S %p %Z',
@@ -68,21 +69,38 @@ TOTAL_LICENSES = 25000
 userDB = []
 userInactiveDB = []
 
-def logging(text):
+def logging(text ,save=True):
     global logData
     global listbox
     global root
     global fileLog
-    
+    today = datetime.datetime.now()
+
+    lineLen = 69    
+
+
+
     if listbox.size() == 0:
-        today = datetime.datetime.now()
         fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
+
+    if len(text) > 0:
+        todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}]' 
+        text = f'{todayStr}{text}'
+     
+        if len(text) >= lineLen:
+            textChunk = [text[i:i+lineLen] for i in range(0, len(text), lineLen)]
+            #print(f' Dated Text {len(textChunk)}:{textChunk}')
+            for i in range(len(textChunk) - 1, -1, -1):
+                #logData.set(textChunk[i])
+                listbox.insert(0, textChunk[i])
+        else:
+            #logData.set(text)
+            listbox.insert(0, text)
         
-    logData.set(text)
-    listbox.insert(0, text)
-    print(f"Log:  {text}")
-    root.update()
-    logSave()
+        print(f"Log:  {text}")
+        root.update()
+        if save == True:
+            logSave()
 
 def PrintException():
     exc_type, exc_obj, tb = sys.exc_info()
@@ -97,8 +115,10 @@ def logSave():
 
     try:
         with open(fileLog, 'w') as f:
-            f.write(''.join(listbox.get(0, END)))
-            f.write('\n')
+            text = '\n'.join(listbox.get(0, END))
+            f.write(text)
+            #f.write('\n')
+            print(f'saving file {fileLog} with: {text}')
     except Exception as e:
         print(f'Error saving file {e}')
         
@@ -204,6 +224,8 @@ def csvOpen():
                     cancelAction = False
                     break
                 userDB.append(row)
+                if row[0] != 'Active':
+                    userInactiveDB.append(row)   
                 logging(f'Read data: {row[2]}')
                 #fieldnames = ['flag','userID','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
             
@@ -212,8 +234,7 @@ def csvOpen():
     except Exception as e:
         logging(f'Error in reading file: {e}')
     
-    
-    userInactiveDB = userDB
+
     
     btnDeleteInactive["state"] = "normal"
     btnOpenDelete["state"] = "normal"
@@ -275,6 +296,10 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
     
     tokenError = True
     
+    if note != "":
+        logging(f'{note}')
+    
+    
     try:
         API_KEY = eAPIKey.get()
     except Exception as e:
@@ -331,7 +356,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
             elif rType == "patch":
                 response = requests.patch(url=api, json=body, headers=authHeader)
             elif rType == "delete":
-                logging(f"Attempting to delete user: {note}")
+                logging(f"Attempting to delete user!!")
                 response = requests.delete(url=api, headers=authHeader)
                 logging(f'Deleting {info}: {response}')
         except Exception as e:
@@ -441,7 +466,7 @@ def UpdateUser_Info():
     licenseIdx =  8
     userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
     
-   
+    userEmail = eEmail.get()
     try:
         for user in userDB:
             if user[emailIdx] == userEmail:
@@ -546,7 +571,7 @@ def xref_UpdateUser(userList):
                 userLicense = user[8]
                 months = user[9]
                 
-                if chkActivity == 1:
+                if chkActivity.get() == 1:
                    try:
                        monthsActive = int(eActiveUser.get())
                    except:
@@ -555,7 +580,7 @@ def xref_UpdateUser(userList):
                    if months <= monthsActive:
                        chkParam[0] = True
                             
-                if chkRec == 1:
+                if chkRec.get() == 1:
                     try:
                         recMonths = int(eRecMonths.get())
                     except:
@@ -569,17 +594,17 @@ def xref_UpdateUser(userList):
                    
                     logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
                     
-                if chkMeetings == 1:
+                if chkMeetings.get() == 1:
                     (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIDIdx])
                     if meetingScheduled > 0:
                         chkParam[2] = True
                 
-                if chkBasic == 1:
+                if chkBasic.get() == 1:
                     chkParam[3] = True
             
                    
                 try:
-                    if True not in ckParam:
+                    if True not in chkParam:
                         delete_users_list(user[userIDIdx], email)
                     elif chkParam[3] is True:
                         chkParam[3] = False
@@ -591,21 +616,84 @@ def xref_UpdateUser(userList):
                         logging("{} is not being deleted or modified.".format(email))     
                 except Exception as e:
                     logging(f'Error Updating User: {e}')
-            else:
-                try:
-                    if userLicense.lower() != 'basic':
-                        None
-                        #modify_user_license_scim2(user[userIDIdx],email, userLicense, userType="Basic")
-                except Exception as e:
-                    logging(f'Error modifying user to Based: {e}')
-                        
-                
-                logging(f"Deactivate: {email}")
             
         progress_var.set(int((userCount/userEmails)*100))            
     else:
         logging("No users to remove")
     logging("Finished removing users....")
+
+def start_modify_user(email):
+    emailIdx = 1
+    userIDIdx = 2
+    monthsIdx = 6
+    groupIdx = 7
+    licenseIdx =  8
+    userCount = 0
+    recordings = 0
+    months = ""
+    progress_var.set(0)
+    
+    monthsActive = None
+    recMonths = None
+    meetings = None
+    noDeletes = None
+    
+    chkParam = [False, False, False, False]
+    logging(f'Cross ref {email} with retrieved users')   
+    for user in userDB:
+        if user[emailIdx] == email:
+            userGroup = user[7]
+            userLicense = user[8]
+            months = user[9]
+            
+            if chkActivity.get() == 1:
+               try:
+                   monthsActive = int(eActiveUser.get())
+               except:
+                   monthsActive = 0
+               
+               if months <= monthsActive:
+                   chkParam[0] = True
+                        
+            if chkRec.get() == 1:
+                try:
+                    recMonths = int(eRecMonths.get())
+                except:
+                    recMonths = 0
+                
+                recordings = check_user_recording_count(user[userIDIdx])
+                
+                if recordings > 0:
+                    chkParam[1] = True
+               
+                logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
+                
+            if chkMeetings.get() == 1:
+                (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIDIdx])
+                if meetingScheduled > 0:
+                    chkParam[2] = True
+            
+            if chkBasic.get() == 1:
+                chkParam[3] = True
+        
+               
+            try:
+                if True not in chkParam:
+                    delete_users_list(user[userIDIdx], email)          
+                elif chkParam[3] is False:
+                    if True in chkParam:
+                        modify_user_license(user[userIDIdx],email, 'Basic')   
+                elif chkParam[3] is True:
+                    chkParam[3] = False
+                    if True not in chkParam:
+                        modify_user_license(user[userIDIdx],email, 'Basic')
+                    else:
+                        logging(f"{email} is not being deleted or modified.")
+                else:
+                    logging("{} is not being deleted or modified.".format(email))     
+            except Exception as e:
+                logging(f'Error Updating User: {e}')
+        
 
 
 def get_group_data():
@@ -661,7 +749,7 @@ def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
             "type": userType
         }   
     
-    send_REST_request('users', data=userID, body=data, rType = "patch", note="")
+    send_REST_request('users', data=userID, body=data, rType = "patch", note=userDesc)
     
 
 def check_user_recording_count(userID):
@@ -746,7 +834,7 @@ def modify_user_scim2(userType, scim2data):
     send_REST_request('scim2', data=userID, param = "", rType = "put", note = f'Set {userName} to {userType}')
     
 def delete_users_list(userID, userDesc):
-    api = f"https://api.zoom.us/v2/users/{userID}"
+    api = f"v2/users/{userID}"
     api = f"{api}?action=delete"
     
     send_REST_request(api, data="", param = "", rType = "delete", note = 'userDesc')
@@ -862,6 +950,15 @@ def proc_user_settings(data, group, email):
         }
     return csvRow
 
+def get_acct_roles():
+    data = send_REST_request('roles', data = '', rType = "get")
+    try:
+        for item in data['roles']:
+            logging(f'{item["name"]} role has {item["total_members"]} members')
+            logging(f'{item["description"]}')
+    except Exception as e:
+        logging('Could not retrieve data')
+    
 def get_user_settings():
     global progress_var
     global userDB
@@ -907,6 +1004,7 @@ def get_user_data(groupsDict):
     # get total page count, convert to integer, increment by 1
     total_pages = None
     record_count = 0
+    userLoginMonths = 0
     pageCount = 0
     page_data = None
     data = None
@@ -1029,36 +1127,44 @@ def get_user_data(groupsDict):
                                         userLastLogin = user['created_at']
                                     except:
                                         userLastLogin = '2015-01-01T00:00:00Z'
+                                
                                 UTCdate = datetime.datetime.strptime(userLastLogin,'%Y-%m-%dT%H:%M:%SZ')
                                 loginDate =  UTCdate.date()
+                                
                                 #print("{} & {}".format(loginDate, DATE_CHECK))
-                                try:
-                                    delta =  (DATE_CHECK - loginDate).days
-                                    #logging("Delta date: {}".format(delta))
-                                except:
-                                    print('Date Error: {}'.format(e))
-                                    
-                                    
+                                
+                                if DATE_CHECK is not None:
+                                    try:
+                                        
+                                        delta =  (DATE_CHECK - loginDate).days
+                                        #logging("Delta date: {}".format(delta))
+                                    except Exception as e:
+                                        PrintException()
+                                        print('Date Error: {}'.format(e))
+                                        
+                                        
                                     
                                 elapsedTime = relativedelta(todaysDate,UTCdate)
                                 userLoginMonths = elapsedTime.months
+                                
                                 #if userLoginMonths >= MAX_MONTHS:
                             except Exception as e:
                                 print ("Error in date-time conversion: {}".format(e))
                             
                             try:
-                                if delta >= 0:
-                                    try:
-                                        flagUser = ['Inactive','Login']
-                                    except Exception as e:
-                                        logging("Error in flagging: {}".format(e))
-                                        
-                                    logging("{} has been inactive for {} months: {}".format(userEmail, userLoginMonths))
-                                else:
-                                    try:
-                                        flagUser = ['Active','Login']     
-                                    except Exception as e:
-                                        logging("Error in flagging: {}".format(e))
+                                if DATE_CHECK is not None:
+                                    if delta >= 0:
+                                        try:
+                                            flagUser = ['Inactive','Login']
+                                        except Exception as e:
+                                            logging("Error in flagging: {}".format(e))
+                                            
+                                        logging("{} has been inactive for {} months: {}".format(userEmail, userLoginMonths))
+                                    else:
+                                        try:
+                                            flagUser = ['Active','Login']     
+                                        except Exception as e:
+                                            logging("Error in flagging: {}".format(e))
                             except Exception as e:
                                 print ('No Valid Last Login Data for{}: {}'.format(userEmail,e))
                                 flagUser = ['No','Login']
@@ -1135,7 +1241,7 @@ def get_user_data(groupsDict):
                                     
                                     
                             if flagUser[0] == 'No' or flagUser[0] == 'Inactive':
-                                logging("{}:{}: {}".format(flagUser[0],flagUser[1],userEmail))
+                                logging("{} {}:#{}, {}".format(flagUser[0],flagUser[1],record_count,userEmail))
                                 flagUserCount += 1
                                 try:
                                     licenseCnt['flagged'][userLicense] += 1
@@ -1154,6 +1260,9 @@ def get_user_data(groupsDict):
                                 userDB.append(user_ids)
                             except:
                                 user_ids = []
+                                
+                            
+                      
 
                     except:
                         None
@@ -1211,21 +1320,34 @@ def total_licenses():
     
 def Relicense_Inactive():
     #userInactive = [userID,userLoginMonths, userFirstName, userLastName, userLicense,userEmail]
+    global cancelAction
     counter = 0
     value = MAX_NUM
+    progress_var.set(0)
+    usersCnt = len(userInactiveDB)
+    
+    logging(f'Relicensing {usersCnt} users')
     
     for userData in userInactiveDB:
+        if cancelAction is True:
+            cancelAction = False
+            break
+        
+        
+        
         if counter >= value and value != 0:
             break
         
-        userID = userData[0]
+        #userID = userData[0]
         userEmail = userData[5]
         userName = "{}".format(userEmail)
         userLicense = userData[4]
         logging('Modifying: {}, {} License'.format(userName,userLicense))
-        modify_user_license(userID,userName, userLicense)
+        start_modify_user(userEmail)
+        #modify_user_license(userID,userName, userLicense)
         counter += 1
-
+        progress_var.set(int((counter/usersCnt)*100))
+        
 def onListSelect(event):
     global eDomain
     global eEMail
@@ -1288,8 +1410,12 @@ def zoom_token_auth():
         MAX_NUM = 0
     
     try:
-        DATE_CHECK = datetime.datetime.strptime(eDate.get(), '%m/%d/%Y').date()
-        print ("{}".format(DATE_CHECK))
+        
+        if eDate.get() != '':
+            DATE_CHECK = datetime.datetime.strptime(eDate.get(), '%m/%d/%Y').date()
+            print ("{}".format(DATE_CHECK))
+        else:
+            DATE_CHECK = None
     except Exception as e:
         logging ("Invalid inactive date")
         DATE_CHECK = "No Date"
@@ -1363,7 +1489,15 @@ colPosMax = 6
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
 root.title('Zeus Tool:  Zoom Enterprise User Scan Tool v0.6.8')
-#root.withdraw()
+root.resizable(height = False, width = False)
+
+#try:
+#    background_image=PhotoImage('.\bgimage.png')
+#    background_label = Label(root, image=background_image)
+#    background_label.photo=background
+#    background_label.place(x=0, y=0, relwidth=900, relheight=900)
+#except Exception as e:
+#print(f'Image Error: {e}')
 
 #Display Title within application
 frameStep1 = LabelFrame(root, padx=5, pady = 5, text = "Required Info")
@@ -1371,6 +1505,7 @@ frameButtons = LabelFrame(root,text = "Actions")
 frameStep2 = LabelFrame(root, padx = 5, pady =5, text="Options that prevent user updates")
 frameUser = LabelFrame(root, text = "User Configuration")
 frameLog = LabelFrame(root)
+
 
 frameStep1.grid(\
         row = pos(0,rowPos), columnspan = int(colPosMax/3), sticky = NSEW)
@@ -1437,6 +1572,7 @@ btnOpen = Button(frameButtons, text="Open User Data", width=30, command=csvOpen)
 btnOpenDelete = Button(frameButtons, textvariable=btnOpenDeleteText, width=60, command=csvOpenDelete, state=DISABLED)
 btnDeleteInactive = Button(frameButtons, textvariable=btnDeleteInactiveText, width=60, command=Relicense_Inactive, state=DISABLED)
 btnSettingsStats = Button(frameButtons, text="Backup User Settings (1.5s per user))", width=60, command=get_user_settings, state=DISABLED)
+btnRoles = Button(frameButtons, text="List Zoom user roles", width=60, command=get_acct_roles)
 
 
 btn.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
@@ -1444,6 +1580,7 @@ btnOpen.grid(column = colPos+1, row = rowPos, sticky = NSEW)
 btnOpenDelete.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
 btnDeleteInactive.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
 btnSettingsStats.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
+btnRoles.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
 
 #btnDeleteInvalid = Button(root, text="Delete All Invalid Users", width=30, command=callback, state=DISABLED)
 #btnDeleteInvalid.pack()
