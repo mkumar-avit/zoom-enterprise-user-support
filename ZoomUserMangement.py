@@ -51,6 +51,7 @@ headerURL = 'https://api.zoom.us/'
 apiURL =\
     {
         'users': 'v2/users',
+        'user':'v2/users/@',
         'groups': 'v2/groups',
         'scim2': 'scim2/Users/@',
         'plan': 'accounts/@/plans/usage',
@@ -609,7 +610,7 @@ def xref_UpdateUser(userList):
                     elif chkParam[3] is True:
                         chkParam[3] = False
                         if True not in chkParam:
-                            modify_user_license(user[userIDIdx],email, 'Basic')
+                            modify_user_license(user[userIDIdx],email, userLicense)
                         else:
                             logging(f"{email} is not being deleted or modified.")
                     else:
@@ -682,11 +683,11 @@ def start_modify_user(email):
                     delete_users_list(user[userIDIdx], email)          
                 elif chkParam[3] is False:
                     if True in chkParam:
-                        modify_user_license(user[userIDIdx],email, 'Basic')   
+                        modify_user_license(user[userIDIdx],email, userLicense)   
                 elif chkParam[3] is True:
                     chkParam[3] = False
                     if True not in chkParam:
-                        modify_user_license(user[userIDIdx],email, 'Basic')
+                        modify_user_license(user[userIDIdx],email, userLicense)
                     else:
                         logging(f"{email} is not being deleted or modified.")
                 else:
@@ -738,18 +739,15 @@ def validate_user_modification(userID):
     
     
 def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
-    api = f"https://api.zoom.us/v2/users/{userID}"
-    
-    #api = f"{api}?action=delete"
-    
-    userDesc = f"{userEmail} will be updated to {userType}"
+      
+    userDesc = f"{userEmail} will be updated from {userCurrLicense} to {userType}"
     
     data =\
         {
             "type": userType
         }   
     
-    send_REST_request('users', data=userID, body=data, rType = "patch", note=userDesc)
+    send_REST_request('user', data=userID, body=data, rType = "patch", note=userDesc)
     
 
 def check_user_recording_count(userID):
