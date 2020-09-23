@@ -89,7 +89,7 @@ def logging(text ,save=True):
         if listbox.size() == 0:
             fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
     except:
-        fileLog = f"ZoomApplLog.txt"
+        fileLog = f"ZoomAppLog.txt"
             
     if len(text) > 0:
         todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
@@ -106,7 +106,7 @@ def logging(text ,save=True):
             listbox.insert(0, text)
         
         print(f"Log:  {text}")
-        root.update()
+        #root.update()
         if save == True:
             logSave()
 
@@ -194,7 +194,7 @@ def ldapConnect():
             search_base=params['UserOu'],
             search_filter=query,
             search_scope=ldap3.SUBTREE,
-            attributes=[*],
+            attributes=['*'],
             paged_size=100,
             generator=True)
         entries = []
