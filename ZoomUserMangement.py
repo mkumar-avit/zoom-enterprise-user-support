@@ -12,7 +12,6 @@ import csv
 from dateutil.relativedelta import relativedelta
 #from dateutil.parser import parse
 #from signal import signal, SIGINT
-from sys import exit
 
 from tkinter import *
 from tkinter import ttk
@@ -62,7 +61,13 @@ apiURL =\
         'subaccount':'v2/accounts',
         'recording':'v2/users/@/recordings',
         'settings':'v2/users/@/settings',
+        'logs':'v2/report/operationlog',
+        'signin':'v2/report/activities',
+        'trackingList':'v2/tracking_fields',
+        'trackingGet':'v2/tracking_fields/@',
         'groupSettings':'v2/groups/@/settings'
+        
+        
     }
 
 
@@ -79,13 +84,15 @@ def logging(text ,save=True):
 
     lineLen = 69    
 
-
-
-    if listbox.size() == 0:
-        fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
-
+    
+    try:
+        if listbox.size() == 0:
+            fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
+    except:
+        fileLog = f"ZoomApplLog.txt"
+            
     if len(text) > 0:
-        todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}]' 
+        todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
         text = f'{todayStr}{text}'
      
         if len(text) >= lineLen:
@@ -110,7 +117,8 @@ def PrintException():
     filename = f.f_code.co_filename
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
-    logging(f"++Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}")
+    if chkDebug.get() == 1:
+        logging(f"++Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}")
 
 def logSave():
 
@@ -121,8 +129,97 @@ def logSave():
             #f.write('\n')
             print(f'saving file {fileLog} with: {text}')
     except Exception as e:
+        #Do not use logging function here
         print(f'Error saving file {e}')
+
+def ldapAttributes():
+    from ldap3 import Server, Connection
+
+    s = Server('my_server')
+    c = Connection(s, 'my_user', 'my_password')
+    c.bind()
+    print(c.result)
+    c.search('my_base', 'my_filter', attributes=['*'])
+    print(c.result)
+    print(c.response)
+    c.unbind()    
         
+def ldapConnect():
+    #assert 'ad_user' in secrets, f"ActiveDirectory user ID secret for {params['resource_name']} is missing."
+    #assert secrets['ad_user'] is not None, f"ActiveDirectory user ID secret for {params['resource_name']} is missing."
+    #assert 'ad_password' in secrets, f"ActiveDirectory password secret for {params['resource_name']} is missing."
+    #assert secrets['ad_password'] is not None, f"ActiveDirectory passwordsecret for {params['resource_name']} is missing."
+    #assert 'ad_host' in params, f"ActiveDirectory host for {params['resource_name']} is missing."
+    #assert params['ad_host'] is not None, f"ActiveDirectory host for {params['resource_name']} is missing. host={params['ad_host']}"
+    #print(f"AD host:{params['ad_host']}, user:{secrets['ad_user']}, password:{secrets['ad_password']}")
+    ad_conn = ldap3.Connection(
+        ldap3.Server(eLDAPHost.get(), port=389, use_ssl=False, get_info=ldap3.NONE),
+        auto_bind=ldap3.AUTO_BIND_NO_TLS,
+        check_names=False,
+        user=eLDAPUser.get(),
+        password=eLDAPPass.get()
+        )
+    #assert ad_conn is not None, f"Unable to open Active Directory connection for {params['resource_name']} agent"
+
+    #assert 'EnrolledUserGroupName' in params, f"Enrolled User group name configuration for {params['resource_name']} is missing."
+    #assert params['EnrolledUserGroupName'] is not None, f"GEnrolled User group name configuration for  {params['resource_name']} is missing. group name={params['EnrolledUserGroupName']}"
+    #assert 'GroupOu' in params, f"Group OU configuration for {params['resource_name']} is missing."
+    #assert params['GroupOu'] is not None, f"Group OU configuration for {params['resource_name']} is missing. group ou={params['GroupOu']}"
+    #params['GroupOu'] = f"{params['GroupOu']},{params['base_DN']}"
+    #print(f"AD Group is {params['EnrolledUserGroupName']} located at {params['GroupOu']}")
+
+    #assert 'UserOu' in params, f"User OU configuration for {params['resource_name']} is missing."
+    #assert params['UserOu'] is not None, f"User OU configuration for {params['resource_name']} is missing. user ou={params['UserOu']}"
+    #params['UserOu'] = f"{params['UserOu']},{params['base_DN']}"
+    #print(f"User OU is {params['UserOu']}")    
+
+    def ldapGet():
+        """Callback method that retrieves actuals from the source of truth system for this provisioning resource (Active Directory via LDAP interface)
+            this method:
+            * creates a resource doc in the proper format for this provisioning resource
+            * saves the retrieved actuals
+            Actuals are retrieved in pages containing multiple entries.
+        Returns:
+            Integer: count of actuals retrieved
+
+        """
+        # Begin Agent implementation   ---------------------------------------------------------------------
+        assert ad_conn is not None, f"ERROR.  Active Directory connection for {params['resource_name']} agent is missing"
+        count = 0
+        save_page_count = 0
+
+        query = f"(memberOf=cn={params['EnrolledUserGroupName']},{params['GroupOu']})"
+        # print(f"AD query: {query}")
+        entry_generator = ad_conn.extend.standard.paged_search(
+            search_base=params['UserOu'],
+            search_filter=query,
+            search_scope=ldap3.SUBTREE,
+            attributes=[*],
+            paged_size=100,
+            generator=True)
+        entries = []
+        for entry in entry_generator:
+            # print(f"""ad entry:
+            # {entry}""")
+            doc = _create_actuals_doc(entry)
+            entries.append(doc)
+            if len(entries) >= int(params['AdPageSize']):
+                # commit full pages
+                count += save_actuals(entries)
+                save_page_count += 1
+                entries.clear()
+
+        if len(entries) > 0:
+            # commit partial page
+            count += save_actuals(entries)
+            save_page_count += 1
+            entries.clear()
+
+        print(f"LDAP query of {params['EnrolledUserGroupName']} returned {count} entries, save_page_count={save_page_count}")
+        # End Agent implementation   ---------------------------------------------------------------------
+        return count
+ 
+ 
 def JWT_Token2(key,secret, leaseTime = 2): 
     authHeader = ""
     
@@ -153,7 +250,6 @@ def JWT_Token2(key,secret, leaseTime = 2):
 
 def JWT_Token(key,secret, leaseTime = 2):    
     
-    TIMESTRING_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
     today = datetime.datetime.now()
     expTime = today + datetime.timedelta(seconds=leaseTime)
     
@@ -169,33 +265,49 @@ def JWT_Token(key,secret, leaseTime = 2):
     encoded_jwt = jwt.encode(payload, secret, algorithm='HS256')
     
     return encoded_jwt.decode("utf-8")
-
-def csvOpen2(fileDefault=""):
+def openCredentials():
+    
+    try:
+        creds = csvOpen2()
+        eAPIKey.set(creds[0])
+        eAPISecret.set(creds[1])
+        eDomain.set(creds[2])
+        eLDAPHost.set(creds[3])
+        eLDAPUser.set(creds[4])
+        eLDAPPass.set(creds[5])
+    except:
+        logging("Invalid credentials file.")
+ 
+ 
+def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames = ""):
     csvData = []
     
     try:
-        root.filename = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
-        logging (f"Open File: {root.filename}")
+        root.filename = filedialog.askopenfilename(initialdir = "./",title = "Select file",filetypes = ((f"{fileDesc}",f"*.{fileType}"),("all files","*.*")))
         fileName = root.filename
-    except:
-        PrintException()
-        fileName = fileDefault     
+    except Exception as e:
+        logging (f"Error opening file: {e}")
+        fileName = fileDefault
 
+    cancelActions(False)
     try:
         with open(fileName) as file:
+            logging (f"Open File: {root.filename}")
             readFile = csv.reader(file, delimiter=',')
             
             for row in readFile:
+                if cancelAction is True:
+                    cancelAction = False
+                    break
                 csvData.append(row)
-                logging(f'Read data: {row[2]}')
-                #fieldnames = ['flag','userID','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
             
-            logging(f'Number of Entries opened: {len(userDB)}')
+            
+            logging(f'Number of Entries opened {fileName}: {len(csvData)}')
             
     except Exception as e:
         logging(f'Error in reading file: {e}')
 
-
+    return csvData
 
 def csvOpen():
     global userDB
@@ -204,7 +316,7 @@ def csvOpen():
     
     
     try:
-        root.filename = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
+        root.filename = filedialog.askopenfilename(initialdir = "./",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
         logging (f"Open File: {root.filename}")
         fileName = root.filename
     except:
@@ -212,8 +324,7 @@ def csvOpen():
         fileName = USER_DB_FILE
     
     
-    cancelAction = False
-    btnCancel["state"] = "normal"
+    cancelActions(False)
     
     try:
         with open(fileName) as csvfile:
@@ -324,8 +435,8 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
         ampersand = ""
         for key in param:
             if param[key] != '' and param[key] != None:
-                    delimiter = "{}{}{}={}".format(delimiter,ampersand,key,param[key])
-                    ampersand = "&"  
+                delimiter = "{}{}{}={}".format(delimiter,ampersand,key,param[key])
+                ampersand = "&"  
         
     if authHeader != '':
         
@@ -356,15 +467,20 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 response = requests.put(url=api, json=body, headers=authHeader)
             elif rType == "patch":
                 response = requests.patch(url=api, json=body, headers=authHeader)
+                print(f'Response: {response}')
+                #print(f'Details:{respData["detail"]}')
             elif rType == "delete":
                 logging(f"Attempting to delete user!!")
                 response = requests.delete(url=api, headers=authHeader)
                 logging(f'Deleting {info}: {response}')
         except Exception as e:
-            logging(f'Send HTTP REST Request {api}, Response: {response}, Error:{e}')     
+            logging(f'Send HTTP {rType} REST Request {api}, Response: {response}, Error:{e}')     
         try:
             status = response.status_code
-            respData = response.json()
+            try:
+                respData = response.json()
+            except Exception as e:
+                print('No JSON data in response from request: {e}')
             print(f'Received HTTP REST Request {respData}')
             
             if status == 404:
@@ -373,10 +489,13 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 except:
                     return "Error"
             elif 'code' in respData:
-                logging('Send JWT Token error: Code:{} Message:{}'.format(respData['code'],respData['message']))          
+                logging('Send POST Request error: Code:{} Message:{}'.format(respData['code'],respData['message']))          
                 return "{}\n".format(respData['message'])
             else:
                 tokenError = False
+            if chkDebug.get() == 1:
+                logging(f'Response: Code:{status} Message:{response.content}')
+            
         except Exception as e:
             PrintException()
             logging('Processing HTTP REST Request {} error:{}'.format(api, e))
@@ -573,13 +692,13 @@ def xref_UpdateUser(userList):
                 months = user[9]
                 
                 if chkActivity.get() == 1:
-                   try:
-                       monthsActive = int(eActiveUser.get())
-                   except:
-                       monthsActive = 0
+                    try:
+                        monthsActive = int(eActiveUser.get())
+                    except:
+                        monthsActive = 0
                    
-                   if months <= monthsActive:
-                       chkParam[0] = True
+                    if months <= monthsActive:
+                        chkParam[0] = True
                             
                 if chkRec.get() == 1:
                     try:
@@ -648,13 +767,13 @@ def start_modify_user(email):
             months = user[9]
             
             if chkActivity.get() == 1:
-               try:
-                   monthsActive = int(eActiveUser.get())
-               except:
-                   monthsActive = 0
+                try:
+                    monthsActive = int(eActiveUser.get())
+                except:
+                    monthsActive = 0
                
-               if months <= monthsActive:
-                   chkParam[0] = True
+                if months <= monthsActive:
+                    chkParam[0] = True
                         
             if chkRec.get() == 1:
                 try:
@@ -901,36 +1020,37 @@ def get_plan_data(token,accountID):
 
 def proc_user_settings(data, group, email):
     tally = {}
+    csvRow = {\
+        "Email": email,
+        "Group": group,
+        "Category":"",
+        "Setting":"",
+        "Value":""
+        }
+    
+    
     if data != {}:
         try:
             for category in data:
                 try:
                     for setting in data[category]:
                         try:
-                            for value in data[category][setting]:
-                                if value is list:
-                                    for item in value:
-                                        value = f"{value}, {item}"
-                                
-                                #fullname =f'{category}{setting}{value}'
-                                
-                                #if fullname in tally:
-                                #    tally[fullname] += 1
-                                #else:
-                                #    tally[fullname] = 1
-                                
-                                
-                                csvRow = {\
-                                    "Email": email,
-                                    "Group": group,
-                                    "Category":category,
-                                    "Setting":setting,
-                                    "Value":value,
-                                    }
-                                 
-                                return csvRow
+                            value = data[category][setting]
+                            if value is list:
+                                for item in value:
+                                    value = f"{value}, {item}"
+                                                            
+                            csvRow = {\
+                                "Email": email,
+                                "Group": group,
+                                "Category":category,
+                                "Setting":setting,
+                                "Value":value
+                                }
+                             
                         except Exception as e:
-                            print('Error in CSV flag data: {e}')
+                            PrintException()
+                            print(f'Error in CSV flag data: {e}')
                             None
                 except:
                     PrintException()
@@ -939,13 +1059,6 @@ def proc_user_settings(data, group, email):
             PrintException()
             #None
 
-    csvRow = {\
-        "Email": email,
-        "Group": group,
-        "Category":"",
-        "Setting":"",
-        "Value":"",
-        }
     return csvRow
 
 def get_acct_roles():
@@ -961,14 +1074,16 @@ def get_user_settings():
     global progress_var
     global userDB
     global cancelAction
+
     
-    cancelAction = False
-    btnCancel["state"] = "normal"
+    cancelActions(False)
     fileName = "User Setting Tracking.csv"
+
+                
     try:
         count = 0
         with open(fileName, 'w', newline='') as csvFile:
-            writer = csv.DictWriter(csvFile, fieldnames = ["Group", "Category", "Setting","Value","Count"])
+            writer = csv.DictWriter(csvFile, fieldnames = ["Email","Group", "Category", "Setting","Value"])
             writer.writeheader()
             
             for user in userDB:
@@ -982,12 +1097,56 @@ def get_user_settings():
                 root.update_idletasks()
                 
                 userID = user[2]
-                email = user[3]
+                email = user[1]
                 group = user[7]
-                logging(f'{count}% Retrieving {group}, {email} settings')
-                data = send_REST_request('settings', data = userID, rType = "get")
-                csvRow = proc_user_settings(user,group, email)
-                writer.writerow(csvRow)
+                logging(f'{count} Retrieving {group}, {email} settings')
+                timeStart = time.time()
+                userSettings = send_REST_request('settings', data = userID, rType = "get")
+                timeEnd = time.time()
+                
+                timeTotal = timeEnd - timeStart
+                btnSettingsText.set(f"Backup User Settings {timeTotal:.2f}s per user/{((timeTotal*(len(userDB) - count))/60):.3f}min Remaining")
+                #csvRow = proc_user_settings(userSettings, group, email)
+                tally = {}
+                csvRow = {\
+                    "Email": email,
+                    "Group": group,
+                    "Category":"",
+                    "Setting":"",
+                    "Value":""
+                    }
+                
+                if userSettings != {}:
+                    try:
+                        for category in userSettings:
+                            try:
+                                for setting in userSettings[category]:
+                                    try:
+                                        value = userSettings[category][setting]
+                                        if value is list:
+                                            for item in value:
+                                                value = f"{value}, {item}"
+                                                                        
+                                        csvRow = {\
+                                            "Email": email,
+                                            "Group": group,
+                                            "Category":category,
+                                            "Setting":setting,
+                                            "Value":value
+                                            }
+                                        writer.writerow(csvRow)
+                                    except Exception as e:
+                                        PrintException()
+                                        print(f'Error in CSV flag data: {e}')
+                                        None
+                            except:
+                                PrintException()
+                                #None
+                    except:
+                        PrintException()
+                        #None
+
+                
     except Exception as e:
         logging (f'Error with creating file: {e}')
                 
@@ -1056,6 +1215,7 @@ def get_user_data(groupsDict):
         user_ids = []
         licenseCnt = {'total':{'Basic':0,'Licensed':0,'On-Prem':0,'None':0},'flagged':{'Basic':0,'Licensed':0,'On-Prem':0,'None':0}}
         todaysDate = datetime.datetime.now()
+        cancelActions(False)
         try:
             with open(USER_DB_FILE, 'w', newline='') as csvfile:
                 fieldnames = ['flag','user_id','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
@@ -1157,7 +1317,7 @@ def get_user_data(groupsDict):
                                         except Exception as e:
                                             logging("Error in flagging: {}".format(e))
                                             
-                                        logging("{} has been inactive for {} months: {}".format(userEmail, userLoginMonths))
+                                        logging("{} has been inactive for {} months".format(userEmail, userLoginMonths))
                                     else:
                                         try:
                                             flagUser = ['Active','Login']     
@@ -1325,7 +1485,7 @@ def Relicense_Inactive():
     usersCnt = len(userInactiveDB)
     
     logging(f'Relicensing {usersCnt} users')
-    
+    cancelActions(False)
     for userData in userInactiveDB:
         if cancelAction is True:
             cancelAction = False
@@ -1372,7 +1532,9 @@ def testdata():
     print ("Cloud Recording Count Test: {}".format(rec))
     
     
-
+def clearLog():
+    logging(f'Clearing Log...')
+    listbox.delete(0,END)    
 
 
 def callback():
@@ -1380,8 +1542,7 @@ def callback():
     global userDB
     global cancelAction
     
-    cancelAction = False
-    btnCancel["state"] = "normal"
+    cancelActions(False)
     userDB.clear()
     listbox.delete(0,END)
     zoom_token_auth()
@@ -1421,13 +1582,25 @@ def zoom_token_auth():
     logging("Inactive Date:  {}".format(DATE_CHECK))
     
 
-def cancelActions():
+def cancelActions(state):
     global cancelAction
     
-    logging("Cancelling last request...")
-    cancelAction = True
-    btnCancel["state"] = "disabled"
-    
+    #if state == cancelAction:
+    #    cancelAction = not cancelAction
+        
+    if state is True:
+        logging("Cancelling last request...")
+        cancelAction = True
+        btnCancel["state"] = "disabled"
+    else:
+        cancelAction = False
+        btnCancel["state"] = "normal"
+
+def cancelActionsBtn():
+    cancelActions(True)
+
+
+
     
 def pos(inc,val):
     global rowPos
@@ -1442,6 +1615,8 @@ def pos(inc,val):
 def btnTxtUpdates():
     global btnOpenDeleteText
     global btnDeleteInactiveText
+    
+    btnSettingsText.set(f"Backup User Settings")    
     
     exclusions = []
     if chkRec.get() == 1:
@@ -1476,8 +1651,8 @@ def btnTxtUpdates():
         btnDeleteInactiveText.set(f'{inactiveTxt}')
         btnOpenDeleteText.set(f'{emailTxt}')                 
     
-    mainloop()
-    root.update_idletasks()
+    #mainloop()
+    #root.update_idletasks()
 
 rowPos = 0
 colPos = 0
@@ -1498,6 +1673,9 @@ root.resizable(height = False, width = False)
 #print(f'Image Error: {e}')
 
 #Display Title within application
+
+iconFolder = PhotoImage(master=root, file='folder.png')
+
 frameStep1 = LabelFrame(root, padx=5, pady = 5, text = "Required Info")
 frameButtons = LabelFrame(root,text = "Actions")
 frameStep2 = LabelFrame(root, padx = 5, pady =5, text="Options that prevent user updates")
@@ -1517,6 +1695,17 @@ frameStep2.grid(\
         row = pos(0,rowPos), column = colPos + 2, columnspan = int(colPosMax/3), sticky = NSEW)
 
 
+btnOpenCreds = Button(\
+    frameStep1,
+    text="Open Credentials File",
+    image=iconFolder,
+    compound = LEFT,
+    width=20,
+    command=openCredentials
+    )
+
+
+btnOpenCreds.grid(row = pos(1,rowPos), columnspan = 2, column = 0, sticky = NSEW )
 
 
 eLbl1 = Label(frameStep1, text="API Key")
@@ -1525,24 +1714,39 @@ eLbl2 = Label(frameStep1, text="API Secret")
 eAPISecret = Entry(frameStep1, show='*')
 eLbl3 =  Label(frameStep1, text="Email Domain")
 eDomain = Entry(frameStep1)
-eLbl4 = Label(frameStep1, text="Date to Be considered inactive user")
+eLbl4 = Label(frameStep1, text="LDAP Host")
+eLDAPHost = Entry(frameStep1)
+eLbl5 = Label(frameStep1, text="LDAP Login")
+eLDAPUser = Entry(frameStep1)
+eLbl6 = Label(frameStep1, text="LDAP Password")
+eLDAPPass = Entry(frameStep1, show='*')
 
 
-eLbl1.grid(row = pos(1,rowPos), column= colPos)
+eLbl1.grid(row = pos(1,rowPos), column= colPos, sticky = E)
 eAPIKey.grid(row = rowPos, column = colPos+1)
 
-eLbl2.grid(row = pos(1,rowPos), column = colPos)
+eLbl2.grid(row = pos(1,rowPos), column = colPos, sticky = E)
 eAPISecret.grid(row = rowPos, column = colPos + 1)
-eLbl3.grid(row = pos(1,rowPos), column = colPos)
+eLbl3.grid(row = pos(1,rowPos), column = colPos, sticky = E)
 eDomain.grid(row = rowPos, column = colPos + 1)
-eLbl4.grid(row = pos(1,rowPos), column = colPos, columnspan = int(colPosMax / 3))
+
+eLbl4.grid(row = pos(1,rowPos), column = colPos, sticky = E)
+eLDAPHost.grid(row = rowPos, column = colPos + 1)
+
+eLbl5.grid(row = pos(1,rowPos), column = colPos, sticky = E)
+eLDAPUser.grid(row = rowPos, column = colPos + 1)
+
+eLbl6.grid(row = pos(1,rowPos), column = colPos, sticky = E)
+eLDAPPass.grid(row = rowPos, column = colPos + 1)
+
 #eLbl = Label(root, text="Months since last signin to be Inactive")
 #eLbl.pack()
 #eMonths = Entry(root)
 #eMonths.pack()
 
 
-
+eLbl7 = Label(frameStep1, text="Date to be considered an inactive user")
+eLbl7.grid(row = pos(1,rowPos), column = colPos, columnspan = int(colPosMax / 3))
 
 elblDate = Label(frameStep1, text= "mm/dd/yyyy")
 elblDate.grid(row=pos(1,rowPos), column = colPos)
@@ -1564,12 +1768,13 @@ eAPIKey.focus_set()
 
 btnOpenDeleteText = StringVar()
 btnDeleteInactiveText = StringVar()
+btnSettingsText = StringVar()
 
 btn = Button(frameButtons, text="Retrieve User Data", width=30, command=callback)
-btnOpen = Button(frameButtons, text="Open User Data", width=30, command=csvOpen)
-btnOpenDelete = Button(frameButtons, textvariable=btnOpenDeleteText, width=60, command=csvOpenDelete, state=DISABLED)
+btnOpen = Button(frameButtons, text="Open User Data", image=iconFolder, compound = LEFT, width=30, command=csvOpen)
+btnOpenDelete = Button(frameButtons, textvariable=btnOpenDeleteText,image=iconFolder, compound = LEFT, width=60, command=csvOpenDelete, state=DISABLED)
 btnDeleteInactive = Button(frameButtons, textvariable=btnDeleteInactiveText, width=60, command=Relicense_Inactive, state=DISABLED)
-btnSettingsStats = Button(frameButtons, text="Backup User Settings (1.5s per user))", width=60, command=get_user_settings, state=DISABLED)
+btnSettingsStats = Button(frameButtons, textvariable = btnSettingsText, width=60, command=get_user_settings, state=DISABLED)
 btnRoles = Button(frameButtons, text="List Zoom user roles", width=60, command=get_acct_roles)
 
 
@@ -1649,11 +1854,16 @@ btnUpdateBasic = Button(frameUserBtn, text="Basic", width=7, command=UpdateUser_
 btnUpdateBasic.grid(row = rowPos, column = colPos + 4)
 
 
-btnCancel = Button(frameLog, text="Cancel", width=10, command=cancelActions, state=DISABLED)
+btnCancel = Button(frameLog, text="Cancel Action", width=15, command=cancelActionsBtn, state=DISABLED)
 btnCancel.grid(row = 1, column = 1, sticky = W)
+
+btnClearLog = Button(frameLog, text="Clear log", width=15, command=clearLog)
+btnClearLog.grid(row = 1, column = 1, sticky = S )
+
 progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
 progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
 progress.grid(row = 1, column = 1, sticky = E)
+
 
 
     
@@ -1667,23 +1877,19 @@ listbox.bind('<<ListboxSelect>>',onListSelect )
 # Adding Listbox to the left 
 # side of root window 
 listbox.grid(row = 2, column = 1) 
-  
-# Creating a Scrollbar and  
-# attaching it to root window 
+
 scrollbar = Scrollbar(frameLog) 
-  
-# Adding Scrollbar to the right 
-# side of root window 
 scrollbar.grid(row = 2 , column = 2, rowspan=2,  sticky=N+S+W) 
-# Attaching Listbox to Scrollbar 
-# Since we need to have a vertical  
-# scroll we use yscrollcommand 
-listbox.config(yscrollcommand = scrollbar.set) 
-  
-# setting scrollbar command parameter  
-# to listbox.yview method its yview because 
-# we need to have a vertical view 
+listbox.config(yscrollcommand = scrollbar.set)  
 scrollbar.config(command = listbox.yview)
+
+
+chkDebug = IntVar()
+chkbxDebug = Checkbutton(frameLog,text='Debug Mode', variable = chkDebug)
+chkbxDebug.grid(row = 3 , column = 1, sticky = W)
+chkbxDebug.config(bd=2)
+
+
 
 btnTxtUpdates()
 
