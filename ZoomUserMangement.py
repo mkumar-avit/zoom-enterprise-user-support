@@ -4,21 +4,6 @@ To Do to finish app and make a true Zoom Enterprise support app:
 -Force User Configuration Frame:
 Webinar, Large Meeting Options
 
--Get user operation logs for current day
--- Post in separate log box
-{
-  "from": "2019-08-14",
-  "to": "2019-09-14",
-  "page_size": 30,
-  "next_page_token": "czxcxdvxvddc",
-  "operation_logs": [
-    {
-      "time": "2019-08-20T19:09:01Z",
-      "operator": "someuser@sfksfhksdfsf.com",
-      "category_type": "User",
-      "action": "Update",
-      "operation_detail": "Activate User sjkfhdsf@jdfgkhgd.com "
-    },
 
 Relicense Process
 - relicense
@@ -87,7 +72,7 @@ API_GROUP_LIST = 'https://api.zoom.us/v2/groups'
 API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
-
+fileAPIList = 'ZoomAPI.json'
 
 dateStr=\
     {
@@ -116,6 +101,7 @@ apiURL =\
         'subaccount':'v2/accounts',
         'recording':'v2/users/@/recordings',
         'settings':'v2/users/@/settings',
+        'logout':'v2/users/@/token',
         'logs':'v2/report/operationlogs',
         'signin':'v2/report/activities',
         'trackingList':'v2/tracking_fields',
@@ -128,7 +114,7 @@ TOTAL_LICENSES = 25000
 userDB = []
 userInactiveDB = []
 
-def logging(text ,save=False):
+def logging(text ,save=True):
     global logData
     global listbox
     global root
@@ -959,6 +945,9 @@ def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
     send_REST_request('user', data=userID, body=data, rType = "patch", note=userDesc)
     
 
+
+
+
 def check_user_recording_count(userID):
     userRec = {}
     response = ""
@@ -1108,6 +1097,25 @@ def get_plan_data(token,accountID):
             logging ('Error in Request for Recording data {}: {}'.format(response, e))   
     return 0
 
+
+def create_user():
+    '''
+
+    '''
+    newUser = {\
+      "action": "ssoCreate",
+      "user_info": {
+        "email": eEmail.get(),
+        "type": 1,
+        "first_name": "",
+        "last_name": ""
+      }
+    }
+    
+    
+    
+
+
 def proc_user_settings(data, group, email):
     tally = {}
     csvRow = {\
@@ -1151,6 +1159,25 @@ def proc_user_settings(data, group, email):
 
     return csvRow
 
+
+
+def openAPIList():
+    data = {}
+    datafile = {}
+    
+    try:
+        with open(fileAPIList, 'r') as JSONFile:
+            datafile = JSONFile.read()
+            logging(f"Opening JSON API List file: {fileAPIList}")
+        
+        data = json.loads(datafile)
+       #.decode("utf-8","ignore")  
+    except DecodeError:
+        pass
+
+    return data
+
+    
 def get_acct_roles():
     data = send_REST_request('roles', data = '', rType = "get")
     try:
@@ -1622,6 +1649,36 @@ def onListSelect(event):
             eEmail.delete(0,"end")
             eEmail.insert(0, item)
 
+def menuAPICommand(eventObject):
+    #logging('Triggered API Command')
+    command = emenuAPICmd.get()
+    
+
+    etxtAPI.delete(0, END)
+    etxtAPI.insert(0, command)
+    emenuAPICmd.configure(width=20)
+    
+    
+def menuAPICategory(eventObject):
+    global apiCommandList
+    #logging('Triggered API Category')
+    category = emenuAPICat.get()
+    
+    apiCommandList.clear()
+    
+    for cmd in apiDict[category]:
+        apiCommandList.append(cmd)
+        
+    emenuAPICmd['values'] = apiCommandList
+    apiCommand.set(apiCommandList[0])
+    
+    #resizeFuncAPICat()
+    etxtAPI.delete(0, END)
+    etxtAPI.insert(0, apiCommandList[0])
+    emenuAPICmd.configure(width=20)
+    
+    root.update()
+
 def testdata():
     #Used to validate if recordings is returning appropriate data
     userID = ""
@@ -1689,6 +1746,27 @@ def userDailySignInLog(userEmail):
         logging(f'Done checking Daily SignIn/Out log for: {userEmail}')
     except:
         PrintException()
+
+def resizeFuncAPICat(): 
+    maxWidth = 2
+    
+    for var in apiCategoryList:
+        if len(var) > maxWidth:
+            maxWidth = len(var) + 2
+            
+    emenuAPICat.configure(width=maxWidth)
+    
+def resizeFuncAPICmd():
+    maxWidth = 2
+    print (f'{apiCommandList}')
+    for var in apiCommandList:
+        if len(var) > maxWidth:
+            maxWidth = len(var) + 2
+    
+    print (f'Resized width:{maxWidth}')
+    emenuAPICmd.configure(width=maxWidth)
+    root.update()
+
 
 def clearLog():
     logging(f'Clearing Log...')
@@ -1894,10 +1972,15 @@ frameButtons.grid(\
         row = pos(1,rowPos), column= colPos + 0, columnspan = colPosMax, sticky = NSEW)
 frameLog.grid(\
         row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
-frameUser.grid(\
-        row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+
+
 frameAPI.grid(\
         row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+
+frameUser.grid(\
+        row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+
+
 
 frameStep2.grid(\
         row = pos(0,rowPos), column = colPos + 2, columnspan = int(colPosMax/3), sticky = NSEW)
@@ -2138,19 +2221,66 @@ for text, mode in RADIOMODES:
     apiRadioBtn.grid(row = rowPos, column = colPos)
     colPos += 1
 
-elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
-elblAPI = Label(frameAPI, text="Commmand (URL End)")
-etxtAPI = Entry(frameAPI)
-etxtAPI.delete(0, END)
-etxtAPI.insert(0, "/report/operationlogs")
+try:
+    apiDict = openAPIList()
+    apiCategoryList = []
+    apiCommandList = []
+    for cat in apiDict:
+        apiCategoryList.append(cat)
 
-elblAPIParam = Label(frameAPI, text="Parameters (JSON)")
-etxtAPIParam = Entry(frameAPI)
-etxtAPIParam.delete(0, END)
-etxtAPIParam.insert(0, '{"page_size":300}')
+    for cmd in apiDict[cat]:
+        apiCommandList.append(cmd)
+except:
+    apiCategoryList = None
+    apiCommandList = None
 
-elblAPIBody = Label(frameAPI, text="Body (JSON)")
-etxtAPIBody = Entry(frameAPI)
+if apiCategoryList != None:
+    apiCategories = StringVar(root)
+    apiCategories.set(cat) # set the default option
+    
+    apiCommand = StringVar(root)
+    apiCommand.set(apiCommandList[0]) # set the default option
+
+
+
+    eLblAPICat = Label(frameAPI, text="API Category")
+    emenuAPICat = ttk.Combobox(frameAPI, textvariable=apiCategories, values=apiCategoryList)
+    resizeFuncAPICat()
+    
+    eLblAPICmd = Label(frameAPI, text="API Command")
+    emenuAPICmd = ttk.Combobox(frameAPI, textvariable=apiCommand,postcommand=resizeFuncAPICmd, values=apiCommandList)
+    #etxtAPI.delete(0, END)
+    #etxtAPI.insert(0, "/report/operationlogs")
+
+    elblAPIParam = Label(frameAPI, text="Parameters (JSON)")
+    etxtAPIParam = Entry(frameAPI)
+    etxtAPIParam.delete(0, END)
+    #etxtAPIParam.insert(0, '{"page_size":300}')
+
+    elblAPIBody = Label(frameAPI, text="Body (JSON)")
+    etxtAPIBody = Entry(frameAPI)
+
+    elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
+    elblAPI = Label(frameAPI, text="Commmand (URL End)")
+    etxtAPI = Entry(frameAPI)
+
+
+    emenuAPICat.bind("<<ComboboxSelected>>", menuAPICategory)
+    emenuAPICmd.bind("<<ComboboxSelected>>", menuAPICommand)
+
+    
+    eLblAPICat.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
+    emenuAPICat.grid(row = rowPos, column = 2, columnspan=4, sticky = W)    
+    eLblAPICmd.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
+    emenuAPICmd.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
+
+    
+    
+    
+
+
+
+
 
 
 elblAPI.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
@@ -2187,3 +2317,7 @@ btnTxtUpdates()
 
 
 mainloop()
+
+
+
+
