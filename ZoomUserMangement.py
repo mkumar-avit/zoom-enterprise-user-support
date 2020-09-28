@@ -329,6 +329,10 @@ def JWT_Token(key,secret, leaseTime = 2):
     encoded_jwt = jwt.encode(payload, secret, algorithm='HS256')
     
     return encoded_jwt.decode("utf-8")
+
+
+    
+
 def openCredentials():
     
     try:
@@ -534,9 +538,9 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 print(f'Response: {response}')
                 #print(f'Details:{respData["detail"]}')
             elif rType == "delete":
-                logging(f"Attempting to delete user!!")
+                logging(f"Attempting to force delete-type REST request!!")
                 response = requests.delete(url=api, headers=authHeader)
-                logging(f'Deleting {info}: {response}')
+                logging(f'{note}: {response}')
         except Exception as e:
             logging(f'Send HTTP {rType} REST Request {api}, Response: {response}, Error:{e}')     
         try:
@@ -640,8 +644,36 @@ def getLicenseInfo(desc):
     
     return ""
 
-   
+def logoutUser():
+    global userDB
+    
+    userID = findUserID(eEmail.get())
+    
+    send_REST_request('logout', data=userID, rType = "delete", note=f"Attempt to Logout {eEmail.get()} from all devices")
+    
+    
+    
+def findUserID(userEmail):
+    licNo = 1
+    emailIdx = 1
+    userIDIdx = 2
+    licenseIdx =  8
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
+    
+    userEmail = eEmail.get()
+
+    try:
+        for user in userDB:
+            if user[emailIdx] == userEmail:
+                return user[userIDIdx]
+    except:
+        None
+        
+    return None
+
+
 def UpdateUser_Info():
+
     global userDB
     licType = 'Basic'
     licNo = 1
@@ -2144,7 +2176,7 @@ frameUserBtn.grid(column = colPos + 2, row = pos(1,rowPos), columnspan = int(col
 btnInfo = Button(frameUserBtn, text="Info", width=8, command=UpdateUser_Info)
 btnInfo.grid(row = rowPos, column = colPos + 2)
 
-btnLogout = Button(frameUserBtn, text="Log Out", width=8, command=UpdateUser_Licensed)
+btnLogout = Button(frameUserBtn, text="Log Out", width=8, command=logoutUser)
 btnLogout.grid(row = rowPos, column = colPos + 3)
 
 btnUpdateLicensed = Button(frameUserBtn, text="Licensed", width=8, command=UpdateUser_Licensed)
