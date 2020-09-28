@@ -95,7 +95,7 @@ dateStr=\
         'std':'%m/%d/%Y %H:%M:%S',
         'file':'%Y-%m-%dT%H-%M-%S',
         '12h':'%m/%d/%Y %I:%M:%S %p %Z',
-        'epoch':'%Y-%m-%dT%H:%M:%S%Z',
+        'epoch':'%Y-%m-%dT%H:%M:%SZ',
         'calendar': "%Y-%m-%d",
 
     }
@@ -191,6 +191,9 @@ def logSave():
         print(f'Error saving file {e}')
 
 def timeLocal(utcTimeStr):
+    
+    localTZ = utcTimeStr
+    
     try:
         # utc = datetime.utcnow()
         utc = datetime.datetime.strptime(utcTimeStr, dateStr["epoch"])
