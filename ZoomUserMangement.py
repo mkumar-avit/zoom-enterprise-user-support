@@ -1,3 +1,53 @@
+'''
+To Do to finish app and make a true Zoom Enterprise support app:
+
+-Force User Configuration Frame:
+Webinar, Large Meeting Options
+
+-Get user operation logs for current day
+-- Post in separate log box
+{
+  "from": "2019-08-14",
+  "to": "2019-09-14",
+  "page_size": 30,
+  "next_page_token": "czxcxdvxvddc",
+  "operation_logs": [
+    {
+      "time": "2019-08-20T19:09:01Z",
+      "operator": "someuser@sfksfhksdfsf.com",
+      "category_type": "User",
+      "action": "Update",
+      "operation_detail": "Activate User sjkfhdsf@jdfgkhgd.com "
+    },
+
+Relicense Process
+- relicense
+- Check user if in active meeting/webinar
+- Force logout (revoke sSO token)
+
+LDAP
+-Build list of LDAP attributes for users
+-Select Attribute and value to be used as a filter
+to update users
+- Add button to update user based on LDAP attribute filter
+to specific license type (Basic/Licensed/Delete)
+
+
+
+Settings
+Pull Group Settings and store
+Build Settings Page dynamically
+Build CSV with Group settings to compare with User settings CSV
+
+Email Frame:
+- Add checkbox to email user before change will happen
+- I.E. User will have account deleted, please retrieve all cloud recordings
+- within X days.
+
+'''
+
+
+
 #import os
 #import webbrowser
 #import sys
@@ -9,7 +59,9 @@ import os
 #import io
 #from PIL import Image, ImageTk
 import csv
+import json
 from dateutil.relativedelta import relativedelta
+from dateutil import tz
 #from dateutil.parser import parse
 #from signal import signal, SIGINT
 
@@ -22,6 +74,8 @@ from tkinter import filedialog
 import jwt
 
 
+from_zone = tz.tzutc()
+to_zone = tz.tzlocal()
 cancelAction = False
 DATE_CHECK = ""
 fileLog = ""
@@ -47,6 +101,7 @@ dateStr=\
     }
 
 headerURL = 'https://api.zoom.us/'
+apiVer = 'v2'
 apiURL =\
     {
         'users': 'v2/users',
@@ -61,13 +116,11 @@ apiURL =\
         'subaccount':'v2/accounts',
         'recording':'v2/users/@/recordings',
         'settings':'v2/users/@/settings',
-        'logs':'v2/report/operationlog',
+        'logs':'v2/report/operationlogs',
         'signin':'v2/report/activities',
         'trackingList':'v2/tracking_fields',
         'trackingGet':'v2/tracking_fields/@',
-        'groupSettings':'v2/groups/@/settings'
-        
-        
+        'groupSettings':'v2/groups/@/settings'       
     }
 
 
@@ -75,7 +128,7 @@ TOTAL_LICENSES = 25000
 userDB = []
 userInactiveDB = []
 
-def logging(text ,save=True):
+def logging(text ,save=False):
     global logData
     global listbox
     global root
@@ -96,6 +149,11 @@ def logging(text ,save=True):
         text = f'{todayStr}{text}'
      
         if len(text) >= lineLen:
+            if '{' in text:
+                text.replace('{', '{\n')  
+            if '}' in text:
+                text.replace('}', '}\n')
+            
             textChunk = [text[i:i+lineLen] for i in range(0, len(text), lineLen)]
             #print(f' Dated Text {len(textChunk)}:{textChunk}')
             for i in range(len(textChunk) - 1, -1, -1):
@@ -106,7 +164,7 @@ def logging(text ,save=True):
             listbox.insert(0, text)
         
         print(f"Log:  {text}")
-        #root.update()
+        root.update()
         if save == True:
             logSave()
 
@@ -131,6 +189,23 @@ def logSave():
     except Exception as e:
         #Do not use logging function here
         print(f'Error saving file {e}')
+
+def timeLocal(utcTimeStr):
+    try:
+        # utc = datetime.utcnow()
+        utc = datetime.datetime.strptime(utcTimeStr, dateStr["epoch"])
+
+        # Tell the datetime object that it's in UTC time zone since 
+        # datetime objects are 'naive' by default
+        utc = utc.replace(tzinfo=from_zone)
+
+        # Convert time zone
+        localTZ = utc.astimezone(to_zone)    
+        localTZ = datetime.datetime.strftime(localTZ, dateStr["12h"])
+    except:
+        PrintException()
+        
+    return localTZ
 
 def ldapAttributes():
     from ldap3 import Server, Connection
@@ -480,7 +555,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
             try:
                 respData = response.json()
             except Exception as e:
-                print('No JSON data in response from request: {e}')
+                print(f'No JSON data in response from request: {e}')
             print(f'Received HTTP REST Request {respData}')
             
             if status == 404:
@@ -598,6 +673,18 @@ def UpdateUser_Info():
                         key = f"{e}"
                     
                     logging(f'{key}: {item}')
+                
+                
+                try:
+                    userSettings = get_user_settings(user[userIDIdx],  count = 0)
+                   
+                    for setting in userSettings['feature']:
+                        text = setting.replace("_", " ")
+                        logging(f'{text}: {userSettings["feature"][setting]}')                        
+                except Exception as e:
+                    logging (f'User settings could not be retrieved:{e}')
+                
+                
                 try:
                     logging(f'Recordings: {check_user_recording_count(user[2])}')
                 except Exception as e:
@@ -1070,7 +1157,7 @@ def get_acct_roles():
     except Exception as e:
         logging('Could not retrieve data')
     
-def get_user_settings():
+def get_users_settings():
     global progress_var
     global userDB
     global cancelAction
@@ -1100,12 +1187,7 @@ def get_user_settings():
                 email = user[1]
                 group = user[7]
                 logging(f'{count} Retrieving {group}, {email} settings')
-                timeStart = time.time()
-                userSettings = send_REST_request('settings', data = userID, rType = "get")
-                timeEnd = time.time()
-                
-                timeTotal = timeEnd - timeStart
-                btnSettingsText.set(f"Backup User Settings {timeTotal:.2f}s per user/{((timeTotal*(len(userDB) - count))/60):.3f}min Remaining")
+                get_user_settings(userID,  count)
                 #csvRow = proc_user_settings(userSettings, group, email)
                 tally = {}
                 csvRow = {\
@@ -1150,6 +1232,20 @@ def get_user_settings():
     except Exception as e:
         logging (f'Error with creating file: {e}')
                 
+def get_user_settings(userID,  count = 0):   
+    userSettings = None
+    
+    try:
+        timeStart = time.time()
+        userSettings = send_REST_request('settings', data = userID, rType = "get")
+        timeEnd = time.time()            
+        timeTotal = timeEnd - timeStart
+        btnSettingsText.set(f"Backup User Settings {timeTotal:.2f}s per user/{((timeTotal*(len(userDB)-count))/60):.3f}mins")          
+    except Exception as e:
+        PrintException()
+        print(f'Error getting Settings: {e}')
+    
+    return userSettings
                 
 def get_user_data(groupsDict):
     global progress_var
@@ -1531,7 +1627,66 @@ def testdata():
     input("Press Enter to continue...")
     print ("Cloud Recording Count Test: {}".format(rec))
     
+def getOpsLog():
+    userDailyOpLog(eEmail.get())
+def getSigningLog():
+    userDailySignInLog(eEmail.get())
+
+def userDailyOpLog(userEmail):
+    today = datetime.datetime.now()
+    todayStr = f'{datetime.datetime.strftime(today, dateStr["calendar"])}'
     
+    params = {\
+        'to':'',
+        'from':'',
+        'page_size':300,
+        'next_page_token':''
+        }
+    
+    logging(f'Checking Daily Operation log for: {userEmail}')
+    try:
+        opsLogs = send_REST_request('logs', param=params, rType = "get", note = "")
+        
+        for userLog in opsLogs["operation_logs"]:
+            for item in userLog:
+                if userEmail in userLog[item]:
+                    for item in userLog:
+                        text = item.replace("_", " ")
+                        if text == 'time':
+                            userLog[item] = timeLocal(userLog[item])
+                        logging(f"{text}: {userLog[item]}")
+        logging(f'Done checking Daily Operation log for: {userEmail}')
+    except:
+        PrintException()
+    
+def userDailySignInLog(userEmail):
+    today = datetime.datetime.now()
+    todayStr = f'{datetime.datetime.strftime(today, dateStr["calendar"])}'
+    
+    params = {\
+        'to':'',
+        'from':'',
+        'page_size':300,
+        'next_page_token':''
+        }
+    logging(f'Checking Daily Sign In/Out log for: {userEmail}')
+    try:
+        signinLogs = send_REST_request('signin', param=params, rType = "get", note = "")
+
+        
+        for userLog in signinLogs["activity_logs"]:
+            for item in userLog:
+                if userEmail in userLog[item]:
+                    for item in userLog:
+                        text = item.replace("_", " ")
+                        if text == 'time':
+                            userLog[item] = timeLocal(userLog[item])
+                        logging(f"{text}: {userLog[item]}")
+
+        logging(f'Done checking Daily SignIn/Out log for: {userEmail}')
+    except:
+        PrintException()
+
 def clearLog():
     logging(f'Clearing Log...')
     listbox.delete(0,END)    
@@ -1542,6 +1697,7 @@ def callback():
     global userDB
     global cancelAction
     
+    startTime = time.time()
     cancelActions(False)
     userDB.clear()
     listbox.delete(0,END)
@@ -1550,6 +1706,9 @@ def callback():
     #testdata
     
     data = get_user_data(groupsData)
+    endTime = time.time()
+    timeTotal = endTime - startTime
+    #btn.set(f"Retrieve all users: {((timeTotal*(len(userDB)))/60):.3f}mins")          
 
 
 def zoom_token_auth():
@@ -1581,7 +1740,38 @@ def zoom_token_auth():
     
     logging("Inactive Date:  {}".format(DATE_CHECK))
     
-
+def customAPI():
+    
+    
+    txtBody = etxtAPIBody.get()
+    if txtBody == "":
+        txtBody = None
+    else:
+        try:
+            txtBody = json.loads(txtBody)
+        except:
+            txtBody = ""
+    
+    txtParam = etxtAPIParam.get()
+    if txtParam == "":
+        txtParam = None
+    else:
+        txtParam = json.loads(txtParam) 
+ 
+    
+    api =  f'{apiVer}{etxtAPI.get()}'
+ 
+    response = \
+        send_REST_request(\
+            apiType = api,
+            body= txtBody,
+            param = txtParam,
+            rType = RESTmethod.get(),
+            note="Custom API Command Sent",
+        )
+    
+    logging(f'Response:{response}')
+    
 def cancelActions(state):
     global cancelAction
     
@@ -1600,7 +1790,15 @@ def cancelActionsBtn():
     cancelActions(True)
 
 
-
+def posCol(inc,val):
+    global colPos
+    
+    val = None
+    
+    if inc == 0:
+        colPos = 0
+    colPos += inc
+    return colPos
     
 def pos(inc,val):
     global rowPos
@@ -1664,6 +1862,7 @@ root.option_add('*font', ('verdana', 8, 'bold'))
 root.title('Zeus Tool:  Zoom Enterprise User Scan Tool v0.6.8')
 root.resizable(height = False, width = False)
 
+
 #try:
 #    background_image=PhotoImage('.\bgimage.png')
 #    background_label = Label(root, image=background_image)
@@ -1676,13 +1875,16 @@ root.resizable(height = False, width = False)
 
 iconFolder = PhotoImage(master=root, file='folder.png')
 
-frameStep1 = LabelFrame(root, padx=5, pady = 5, text = "Required Info")
-frameButtons = LabelFrame(root,text = "Actions")
-frameStep2 = LabelFrame(root, padx = 5, pady =5, text="Options that prevent user updates")
-frameUser = LabelFrame(root, text = "User Configuration")
-frameLog = LabelFrame(root)
 
+frameApp = LabelFrame(root, text = "ZEUS by Maneesh Kumar")
+frameStep1 = LabelFrame(frameApp, padx=5, pady = 5, text = "Required Info")
+frameButtons = LabelFrame(frameApp,text = "Actions")
+frameStep2 = LabelFrame(frameApp, padx = 5, pady =5, text="Options that prevent user updates")
+frameUser = LabelFrame(frameApp, text = "User Configuration")
+frameLog = LabelFrame(frameApp)
+frameAPI = LabelFrame(frameApp, text = "Custom API Commands")
 
+frameApp.grid()   
 frameStep1.grid(\
         row = pos(0,rowPos), columnspan = int(colPosMax/3), sticky = NSEW)
 frameButtons.grid(\
@@ -1691,6 +1893,9 @@ frameLog.grid(\
         row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
 frameUser.grid(\
         row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+frameAPI.grid(\
+        row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+
 frameStep2.grid(\
         row = pos(0,rowPos), column = colPos + 2, columnspan = int(colPosMax/3), sticky = NSEW)
 
@@ -1739,21 +1944,6 @@ eLDAPUser.grid(row = rowPos, column = colPos + 1)
 eLbl6.grid(row = pos(1,rowPos), column = colPos, sticky = E)
 eLDAPPass.grid(row = rowPos, column = colPos + 1)
 
-#eLbl = Label(root, text="Months since last signin to be Inactive")
-#eLbl.pack()
-#eMonths = Entry(root)
-#eMonths.pack()
-
-
-eLbl7 = Label(frameStep1, text="Date to be considered an inactive user")
-eLbl7.grid(row = pos(1,rowPos), column = colPos, columnspan = int(colPosMax / 3))
-
-elblDate = Label(frameStep1, text= "mm/dd/yyyy")
-elblDate.grid(row=pos(1,rowPos), column = colPos)
-
-eDate = Entry(frameStep1)
-eDate.grid(row = rowPos, column = colPos + 1)
-
 
 #eLbl3 = Label(root, text="Number to Relicense (debug)")
 #eLbl3.pack()
@@ -1770,11 +1960,11 @@ btnOpenDeleteText = StringVar()
 btnDeleteInactiveText = StringVar()
 btnSettingsText = StringVar()
 
-btn = Button(frameButtons, text="Retrieve User Data", width=30, command=callback)
-btnOpen = Button(frameButtons, text="Open User Data", image=iconFolder, compound = LEFT, width=30, command=csvOpen)
+btn = Button(frameButtons, text="Retrieve All User Data", width=30, command=callback)
+btnOpen = Button(frameButtons, text="Open All User Data", image=iconFolder, compound = LEFT, width=35, command=csvOpen)
 btnOpenDelete = Button(frameButtons, textvariable=btnOpenDeleteText,image=iconFolder, compound = LEFT, width=60, command=csvOpenDelete, state=DISABLED)
 btnDeleteInactive = Button(frameButtons, textvariable=btnDeleteInactiveText, width=60, command=Relicense_Inactive, state=DISABLED)
-btnSettingsStats = Button(frameButtons, textvariable = btnSettingsText, width=60, command=get_user_settings, state=DISABLED)
+btnSettingsStats = Button(frameButtons, textvariable = btnSettingsText, width=60, command=get_users_settings, state=DISABLED)
 btnRoles = Button(frameButtons, text="List Zoom user roles", width=60, command=get_acct_roles)
 
 
@@ -1824,35 +2014,69 @@ eRecMonths.insert(0, "6")
 
 
 
-eLbl7 = Label(frameStep2, text="Months to be considered still active")
-eLbl7.grid(row = pos(1,rowPos), column = colPos + 2)
+eLblMonthsActive = Label(frameStep2, text="Months to be considered still active")
+eLblMonthsActive.grid(row = pos(1,rowPos), column = colPos + 2)
 eActiveUser = Entry(frameStep2)
 eActiveUser.grid(row = pos(1,rowPos), column = colPos + 2)
 eActiveUser.delete(0, END)
 eActiveUser.insert(0, "0")
 
+#eLbl = Label(frameStep2, text="Months since last signin to be Inactive")
+#eLbl.grid(row = pos(1,rowPos), column = colPos, columnspan = int(colPosMax / 3))
+#eMonths = Entry(root)
+#eMonths.pack()
 
 
+eLblInactive = Label(frameStep2, text="Date of last login for an inactive user")
+eLblInactive.grid(row = pos(1,rowPos), column = colPos + 2)
 
-eLbl4 = Label(frameUser, text="Enter email of user to update")
-eLbl4.grid(row = pos(1,rowPos), column = colPos + 2)
+elblDate = Label(frameStep2, text= "mm/dd/yyyy  ")
+elblDate.grid(row=pos(1,rowPos), column = colPos + 2, sticky = W)
+
+eDate = Entry(frameStep2)
+eDate.grid(row = rowPos, column = colPos + 2,sticky = E)
+eDate.delete(0, END)
+eDate.insert(0, "01/01/2019")
+
+eLblUserEmail = Label(frameUser, text="Enter email of user from retrieved data")
+eLblUserEmail.grid(row = pos(1,rowPos), column = colPos + 2)
 eEmail = Entry(frameUser,width=22)
 eEmail.grid(row = pos(1,rowPos), column = colPos + 2)
+
+btnLogOps = Button(frameUser, text="Op Log", width=10, command=getOpsLog)
+btnLogOps.grid(row = rowPos, column = colPos + 3, sticky = W)
+
+btnLogSignin = Button(frameUser, text="Signing Log", width=10, command=getSigningLog)
+btnLogSignin.grid(row = rowPos, column = colPos + 3, sticky = E)
+
 
 frameUserBtn = LabelFrame(frameUser)
 frameUserBtn.grid(column = colPos + 2, row = pos(1,rowPos), columnspan = int(colPosMax/3))
 
 
 
-btnInfo = Button(frameUserBtn, text="Info", width=7, command=UpdateUser_Info)
+btnInfo = Button(frameUserBtn, text="Info", width=8, command=UpdateUser_Info)
 btnInfo.grid(row = rowPos, column = colPos + 2)
 
-btnUpdateLicensed = Button(frameUserBtn, text="Licensed", width=7, command=UpdateUser_Licensed)
-btnUpdateLicensed.grid(row = rowPos, column = colPos + 3)
+btnLogout = Button(frameUserBtn, text="Log Out", width=8, command=UpdateUser_Licensed)
+btnLogout.grid(row = rowPos, column = colPos + 3)
 
-btnUpdateBasic = Button(frameUserBtn, text="Basic", width=7, command=UpdateUser_Basic)
-btnUpdateBasic.grid(row = rowPos, column = colPos + 4)
+btnUpdateLicensed = Button(frameUserBtn, text="Licensed", width=8, command=UpdateUser_Licensed)
+btnUpdateLicensed.grid(row = rowPos, column = colPos + 4)
 
+btnUpdateBasic = Button(frameUserBtn, text="Basic", width=8, command=UpdateUser_Basic)
+btnUpdateBasic.grid(row = rowPos, column = colPos + 5)
+
+
+btnUpdateWebinar = Button(frameUserBtn, text="Webinar", width=8, command=UpdateUser_Basic)
+btnUpdateWebinar.grid(row = rowPos, column = colPos + 6)
+
+
+btnUpdateLargeMtg = Button(frameUserBtn, text="Large Mtg", width=8, command=UpdateUser_Basic)
+btnUpdateLargeMtg.grid(row = rowPos, column = colPos + 7)
+
+btnUpdateLargeMtg = Button(frameUserBtn, text="Delete", width=8, command=UpdateUser_Basic)
+btnUpdateLargeMtg.grid(row = rowPos, column = colPos + 8)
 
 btnCancel = Button(frameLog, text="Cancel Action", width=15, command=cancelActionsBtn, state=DISABLED)
 btnCancel.grid(row = 1, column = 1, sticky = W)
@@ -1890,7 +2114,73 @@ chkbxDebug.grid(row = 3 , column = 1, sticky = W)
 chkbxDebug.config(bd=2)
 
 
+#https://marketplace.zoom.us/docs/api-reference/zoom-api
+## POST, GET, PUT, PATCH, and DELETE. These correspond to create, read, update, and delete (or CRUD) operations, respectiv
+RADIOMODES = [\
+        ("POST", "post"),
+        ("GET", "get"),
+        ("PUT", "put"),
+        ("PATCH", "patch"),
+        ("DELETE", "delete"),
+    ]
+
+RESTmethod = StringVar()
+RESTmethod.set("get") # initialize
+
+rowPos = 0
+colPos = 0
+for text, mode in RADIOMODES:
+    apiRadioBtn = Radiobutton(frameAPI, text=text,
+                    variable=RESTmethod, value=mode)
+    apiRadioBtn.grid(row = rowPos, column = colPos)
+    colPos += 1
+
+elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
+elblAPI = Label(frameAPI, text="Commmand (URL End)")
+etxtAPI = Entry(frameAPI)
+etxtAPI.delete(0, END)
+etxtAPI.insert(0, "/report/operationlogs")
+
+elblAPIParam = Label(frameAPI, text="Parameters (JSON)")
+etxtAPIParam = Entry(frameAPI)
+etxtAPIParam.delete(0, END)
+etxtAPIParam.insert(0, '{"page_size":300}')
+
+elblAPIBody = Label(frameAPI, text="Body (JSON)")
+etxtAPIBody = Entry(frameAPI)
+
+
+elblAPI.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
+etxtAPI.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
+
+elblAPIParam.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
+etxtAPIParam.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
+
+elblAPIBody.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
+etxtAPIBody.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
+
+elblAPIURL.grid(row = pos(1,rowPos), column= 0, columnspan=6, sticky = W)
+
+btnAPIUpdate = Button(frameAPI, text="SEND", width=10, command=customAPI)
+btnAPIUpdate.grid(row = 0, rowspan=4, column = 6, sticky = E)
+
+#screenHeight = root.winfo_screenheight() 
+#screenWidth = root.winfo_screenwidth() 
+#windowHeight = root.winfo_height()
+#windowWidth = root.winfo_width()
+
+#if screenHeight > windowHeight:
+#    scrollbarApp = Scrollbar(frameApp) 
+#    scrollbarApp.grid(row = 0 , column = 7, rowspan=5,  sticky=N+S+W) 
+#    frameApp.config(yscrollcommand = scrollbarApp.set)  
+#    scrollbar.config(command = frameApp.yview)
+
+
+
 
 btnTxtUpdates()
+
+
+
 
 mainloop()
