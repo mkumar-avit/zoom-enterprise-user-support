@@ -18,4 +18,5 @@ This is a functional alpha release and will license and delete users from your Z
 ![Alt text](https://github.com/mkumar-avit/zoom-mass-de-provisioning/blob/master/Zoom%20Zeus.png?raw=true "Current GUI")
 
 
-
+## Requirements
+User needs to have a minimum of a 1080P height resolution to comfortably view the entire program GUI.  Future updates are planned to change this to a much lower resolution.
