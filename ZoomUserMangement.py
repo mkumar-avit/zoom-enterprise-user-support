@@ -55,49 +55,38 @@ Email Frame:
 
 '''
 
-
-
-#import os
-#import webbrowser
-#import sys
-import time
-import requests
+## IMPORTS ##
 import datetime
-import linecache
-import os
-#import io
 #from PIL import Image, ImageTk
 import csv
 import json
+import jwt
+import linecache
+import os
+import requests
+import time
 from dateutil.relativedelta import relativedelta
 from dateutil import tz
-#from dateutil.parser import parse
-#from signal import signal, SIGINT
-
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 
 
-
-import jwt
-
-
-from_zone = tz.tzutc()
-to_zone = tz.tzlocal()
-cancelAction = False
+## GLOBAL CONSTANTS ##
+FROM_ZONE = tz.tzutc()
+TO_ZONE = tz.tzlocal()
 DATE_CHECK = ""
-fileLog = ""
-MAX_MONTHS = 8
-MAX_NUM = 1
-MAX_WEEKS = 52
-API_ENDPOINT_USER_LIST = 'https://api.zoom.us/v2/users'
-API_GROUP_LIST = 'https://api.zoom.us/v2/groups'
+
 API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
-fileAPIList = 'ZoomAPI.json'
+API_FILE = 'ZoomAPI.json'
 
+## GLOBAL VARIABLES ##
+maxMonths = 0
+maxNum = 0
+cancelAction = False
+fileLog = ""
 dateStr=\
     {
         'log':'%m/%d/%y %H:%M:%S.%f',
@@ -134,11 +123,13 @@ apiURL =\
         'groupSettings':'v2/groups/@/settings'       
     }
 
-
-TOTAL_LICENSES = 25000
 userDB = []
 groupDB = {}
 userInactiveDB = []
+logConfig = {}
+
+
+####################################
 
 def logging(text ,save=True):
     """Method meant to display text in Tkinter listbox and print data, with a
@@ -166,10 +157,12 @@ def logging(text ,save=True):
         fileLog = f"ZoomAppLog.txt"
             
     if len(text) > 0:
-        todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
+        todayStr = ""
+        if logConfig['timestamp'].get() == 1:
+            todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
         text = f'{todayStr}{text}'
      
-        if len(text) >= lineLen:
+        if len(text) >= lineLen and logConfig['wrap'].get() == 1:
             if '{' in text:
                 text.replace('{', '{\n')  
             if '}' in text:
@@ -186,7 +179,7 @@ def logging(text ,save=True):
         
         print(f"Log:  {text}")
         root.update()
-        if save == True:
+        if save == True and logConfig['save'].get() == 1:
             logSave()
 
 def PrintException():
@@ -203,7 +196,7 @@ def PrintException():
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
     msg = f"++Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}"
-    if chkDebug.get() == 1:
+    if logConfig['debug'].get() == 1:
         logging(msg)
     else:
         print(msg)
@@ -618,7 +611,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 return "{}\n".format(respData['message'])
             else:
                 tokenError = False
-            if chkDebug.get() == 1:
+            if logConfig['debug'].get() == 1:
                 logging(f'Response: Code:{status} Message:{response.content}')
             
         except Exception as e:
@@ -1147,7 +1140,23 @@ def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
     
 
 
-
+def monthsDate(startDate, endDate):
+    
+    current = datetime.datetime.now()
+    prev_month_lastday =  datetime.datetime.now()
+    
+    for i in range (0,monthsCheck,1):
+        _first_day = prev_month_lastday.replace(day=1)
+        if i>0:
+            prev_month_lastday = _first_day - datetime.timedelta(days=1)
+    
+        lastDate = prev_month_lastday.replace(day=1)
+    
+        monthStart = prev_month_lastday.strftime("%Y-%m-01")
+        lastDay = (lastDate + relativedelta(day=31)).day
+        monthEnd = prev_month_lastday.strftime("%Y-%m-{}".format(lastDay))    
+ 
+    return (monthStart,lastDay,monthEnd)
 
 def check_user_recording_count(userID):
     userRec = {}
@@ -1367,9 +1376,9 @@ def openAPIList():
     datafile = {}
     
     try:
-        with open(fileAPIList, 'r') as JSONFile:
+        with open(API_FILE, 'r') as JSONFile:
             datafile = JSONFile.read()
-            logging(f"Opening JSON API List file: {fileAPIList}")
+            logging(f"Opening JSON API List file: {API_FILE}")
         
         data = json.loads(datafile)
        #.decode("utf-8","ignore")  
@@ -1672,7 +1681,6 @@ def get_user_data(groupsDict):
                     startTime[cntTime] = time.time()
                     
                     
-                    url = API_ENDPOINT_USER_LIST
                     
                     JSONData = {\
                         'status':"",
@@ -1742,9 +1750,11 @@ def get_user_data(groupsDict):
                                         
                                     
                                 elapsedTime = relativedelta(todaysDate,UTCdate)
-                                userLoginMonths = elapsedTime.months
                                 
-                                #if userLoginMonths >= MAX_MONTHS:
+                                userLoginYears = elapsedTime.years 
+                                userLoginMonths = (elapsedTime.years * 12) + elapsedTime.months
+                                
+                                #if userLoginMonths >= maxMonths:
                             except Exception as e:
                                 print ("Error in date-time conversion: {}".format(e))
                             
@@ -1755,8 +1765,9 @@ def get_user_data(groupsDict):
                                             flagUser = ['Inactive','Login']
                                         except Exception as e:
                                             logging("Error in flagging: {}".format(e))
-                                            
-                                        logging("{} has been inactive for {} months".format(userEmail, userLoginMonths))
+                                        
+                                        if logConfig['inactive'].get() == 1:
+                                            logging("{} has been inactive for {} months".format(userEmail, userLoginMonths))
                                     else:
                                         try:
                                             flagUser = ['Active','Login']     
@@ -1830,7 +1841,7 @@ def get_user_data(groupsDict):
                                 userGroup = 'No Group'    
                             
                             try:
-                                if userLoginMonths >= MAX_MONTHS:
+                                if userLoginMonths >= maxMonths:
                                     userInactive = [userID,userLoginMonths, userFirstName, userLastName, userLicense, userEmail]
                                     userInactiveDB.append(userInactive)
                             except Exception as e:
@@ -1838,7 +1849,13 @@ def get_user_data(groupsDict):
                                     
                                     
                             if flagUser[0] == 'No' or flagUser[0] == 'Inactive':
-                                logging("{} {}:#{}, {}".format(flagUser[0],flagUser[1],record_count,userEmail))
+                                
+                                if (logConfig['inactive'].get() == 1 and flagUser[0] == 'Inactive') or\
+                                   (logConfig['noGroup'].get() == 1 and flagUser[0] == 'No'):
+                                    logging("{} {}:#{}, {}".format(flagUser[0],flagUser[1],record_count,userEmail))
+                                
+                                
+                                
                                 flagUserCount += 1
                                 try:
                                     licenseCnt['flagged'][userLicense] += 1
@@ -1881,8 +1898,8 @@ def get_user_data(groupsDict):
                     
                     #progress.step(int((page/total_pages)*100))
                     progress_var.set(int((record_count/recordsTotal)*100))
-
-                    root.update_idletasks()
+                    root.update()
+                    #root.update_idletasks()
                     
                     #print("Time Remaining: {:.2f}s, {}/{} : {}".format(runAvg,page,total_pages,user_ids))
                 # print the contents using zip format.
@@ -1902,9 +1919,59 @@ def get_user_data(groupsDict):
         
     return data
 
-def total_licenses():
+def get_subaccount_data():
     try:
-        logging('Total Licenses:')
+        subAccount = \
+            send_REST_request(\
+                apiType ='subaccount',
+                rType = "get",
+            )        
+    except Exception as e:
+        log("Error getting sub account data: {}".format(e))
+        subAccount = None
+    
+    try:
+        seats = 0
+        for data in subAccount['accounts']:
+            if 'seats' in data:
+                seats += data['seats']
+    except:
+        seats = 0
+        
+    
+    return (subAccount,seats)
+
+def getLicenseInfo(desc):
+    planInfo = \
+        send_REST_request(\
+            apiType ='plan',
+            data = "me",
+            rType = "get",
+            note="",
+        )
+    
+    (subAccount, seats) = get_subaccount_data()
+
+    
+    try:
+        planLicenses = planInfo["plan_base"]["hosts"]
+        planUsers = planInfo["plan_base"]["usage"]
+        remainingNow = planLicenses - planUsers
+        remainingPct = round(((remainingNow / planLicenses) * 100),2)
+        
+        returnStr =  f"\nRemaining licenses:  {remainingPct}%, {remainingNow} (out of {planLicenses})"
+             
+        return returnStr
+    except Exception as e:
+        print ("Exception in License info: {}".format(e))
+        return planInfo
+    
+    return ""
+    
+def total_licenses():
+
+    try:
+        logging('Retrieved Data:')
         for each_row in zip(*([i] + (j) for i, j in licenseCnt['total'].items())): 
             logging(*each_row, " ")
         logging ('Remaining Licences: {}'.format(TOTAL_LICENSES - licenseCnt['total']['Licensed']))             
@@ -1914,7 +1981,7 @@ def total_licenses():
             logging(*each_row, " ")                                    
     except Exception as e:
         logging("Error in generating table of Licenses:{}".format(e))
-    
+
 def Relicense_Inactive():
     #userInactive = [userID,userLoginMonths, userFirstName, userLastName, userLicense,userEmail]
     global cancelAction
@@ -2115,20 +2182,20 @@ def callback():
 
 
 def zoom_token_auth():
-    global MAX_MONTHS
-    global MAX_NUM
+    global maxMonths
+    global maxNum
  
     global DATE_CHECK
     
     try:
-        MAX_MONTHS = int(eMonths.get())
+        maxMonths = int(eMonths.get())
     except:
-        MAX_MONTHS = 10
+        maxMonths = 10
     
     try:
-        MAX_NUM = int(eNumber.get())
+        maxNum = int(eNumber.get())
     except:
-        MAX_NUM = 0
+        maxNum = 0
     
     try:
         
@@ -2259,6 +2326,50 @@ def btnTxtUpdates():
     
     #mainloop()
     #root.update_idletasks()
+def logConfigBox():
+    
+    global logConfig
+    try:
+        logConfig['open'] = not logConfig['open']
+    except:
+        logConfig['open'] = True
+        
+        
+    #if not logConfigWindow.top.winfo_exists():
+    #logConfigWindow.top.lift(root)
+    
+    if logConfig['open'] == True:
+        logConfigWindow = Toplevel(root)
+        logConfigWindow.title('Log Settings')
+        logConfigWindow.resizable(height = False, width = False)
+        
+        frameConfig = LabelFrame(logConfigWindow, padx = 100, pady = 10, text = "Logging Options")
+        frameConfig.grid(row = 0 , column = 0, sticky = W)   
+        
+        chkbxLogTimeStamp = Checkbutton(frameConfig,text='Timestamp', variable = logConfig['timestamp'])
+        chkbxLogTimeStamp.grid(row = pos(0,rowPos) , column = 0, sticky = W)
+        chkbxLogTimeStamp.config(bd=2)
+        
+        chkbxLogWrap = Checkbutton(frameConfig,text='Wrap Lines', variable = logConfig['wrap'])
+        chkbxLogWrap.grid(row = pos(1,rowPos) , column = 0, sticky = W)
+        chkbxLogWrap.config(bd=2)
+        
+        chkbxLogInactive = Checkbutton(frameConfig,text='Inactive Users', variable = logConfig['inactive'])
+        chkbxLogInactive.grid(row = pos(1,rowPos), column = 0, sticky = W)
+        chkbxLogInactive.config(bd=2)
+        
+        chkbxLogNoGroup = Checkbutton(frameConfig,text='Users in no group', variable = logConfig['noGroup'])
+        chkbxLogNoGroup.grid(row = pos(1,rowPos), column = 0, sticky = W)
+        chkbxLogNoGroup.config(bd=2)
+        
+        chkbxLogSave = Checkbutton(frameConfig,text=f'Save Logs', variable = logConfig['save'])
+        chkbxLogSave.grid(row = pos(1,rowPos), column = 0, sticky = W)
+        chkbxLogSave.config(bd=2)
+        
+        chkbxDebug = Checkbutton(frameConfig,text='Debug Mode', variable = logConfig['debug'])
+        chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
+        chkbxDebug.config(bd=2)
+
 
 rowPos = 0
 colPos = 0
@@ -2471,7 +2582,7 @@ frameUserFields.grid(column = 0, row = pos(1,rowPos), columnspan = int(colPosMax
 tempRow = pos(1,rowPos)
 
 eLblUserEmail = Label(frameUserFields, text="User Email")
-eEmail = Entry(frameUserFields,width=22)
+eEmail = Entry(frameUserFields,width=30)
 btnLogOps = Button(frameUserFields, text="Op Log", width=10, command=getOpsLog)
 btnLogSignin = Button(frameUserFields, text="Signing Log", width=10, command=getSigningLog)
 
@@ -2547,10 +2658,19 @@ listbox.config(yscrollcommand = scrollbar.set)
 scrollbar.config(command = listbox.yview)
 
 
-chkDebug = IntVar()
-chkbxDebug = Checkbutton(frameLog,text='Debug Mode', variable = chkDebug)
-chkbxDebug.grid(row = 3 , column = 1, sticky = W)
-chkbxDebug.config(bd=2)
+logConfig = {}
+logConfig['timestamp'] = IntVar(value = 1)
+logConfig['wrap'] = IntVar(value = 1)
+logConfig['inactive'] = IntVar(value = 1)
+logConfig['noGroup'] = IntVar(value = 1)
+logConfig['save'] = IntVar(value = 1)
+logConfig['debug'] = IntVar()
+
+
+
+btnLogConfig = Button(frameLog,text='Log Config', command=logConfigBox)
+btnLogConfig.grid(column = 1, row = 3, sticky = E)
+
 
 
 RADIOMODES = [\
@@ -2592,8 +2712,6 @@ if apiCategoryList != None:
     apiCommand = StringVar(root)
     apiCommand.set(apiCommandList[0]) # set the default option
 
-
-
     eLblAPICat = Label(frameAPI, text="API Category")
     emenuAPICat = ttk.Combobox(frameAPI, textvariable=apiCategories, values=apiCategoryList)
     resizeFuncAPICat()
@@ -2603,37 +2721,27 @@ if apiCategoryList != None:
     #etxtAPI.delete(0, END)
     #etxtAPI.insert(0, "/report/operationlogs")
 
-    elblAPIParam = Label(frameAPI, text="Parameters (JSON)")
-    etxtAPIParam = Entry(frameAPI)
-    etxtAPIParam.delete(0, END)
-    #etxtAPIParam.insert(0, '{"page_size":300}')
-
-    elblAPIBody = Label(frameAPI, text="Body (JSON)")
-    etxtAPIBody = Entry(frameAPI)
-
-    elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
-    elblAPI = Label(frameAPI, text="Commmand (URL End)")
-    etxtAPI = Entry(frameAPI)
-
-
-    emenuAPICat.bind("<<ComboboxSelected>>", menuAPICategory)
     emenuAPICmd.bind("<<ComboboxSelected>>", menuAPICommand)
-
-    
+  
     eLblAPICat.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
     emenuAPICat.grid(row = rowPos, column = 2, columnspan=4, sticky = W)    
     eLblAPICmd.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
-    emenuAPICmd.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
+    emenuAPICmd.grid(row = rowPos, column = 2, columnspan=4, sticky = W)   
 
+
+elblAPIParam = Label(frameAPI, text="Parameters (JSON)")
+etxtAPIParam = Entry(frameAPI)
+etxtAPIParam.delete(0, END)
+#etxtAPIParam.insert(0, '{"page_size":300}')
+
+elblAPIBody = Label(frameAPI, text="Body (JSON)")
+etxtAPIBody = Entry(frameAPI)
+
+
+elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
+elblAPI = Label(frameAPI, text="Commmand (URL End)")
+etxtAPI = Entry(frameAPI)
     
-    
-    
-
-
-
-
-
-
 elblAPI.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
 etxtAPI.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 
