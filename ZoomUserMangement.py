@@ -65,6 +65,7 @@ import linecache
 import os
 import requests
 import time
+import webbrowser
 from dateutil.relativedelta import relativedelta
 from dateutil import tz
 from tkinter import *
@@ -2211,7 +2212,14 @@ def zoom_token_auth():
     logging("Inactive Date:  {}".format(DATE_CHECK))
     
 def customAPI():
-      
+    """Executes custom API "send" button command and sends
+       out the REST API command based on the data defined
+       in the text fields of the custom API GUI frame
+       
+    Args:  None
+    
+    Returns:  None
+    """        
     txtBody = etxtAPIBody.get()
     listboxTop()
     if txtBody == "":
@@ -2244,7 +2252,24 @@ def customAPI():
     
     logging(f'Response:{response}')
     
+def urlOpen(url):
+    """Opens URL in new browser window
+       
+    Args:  url (str) - url to navigate to
+    
+    Returns:  None
+    """  
+    webbrowser.open_new(url) 
+    
 def cancelActions(state):
+    """Executes cancel action by changing state of Cancel Action button
+       and flagging the state of the cancel action that loops should
+       be monitoring for as the break trigger
+       
+    Args:  None
+    
+    Returns:  None
+    """      
     global cancelAction
     
     #if state == cancelAction:
@@ -2259,24 +2284,50 @@ def cancelActions(state):
         btnCancel["state"] = "normal"
 
 def cancelActionsBtn():
+    """Event trigger method for Cancel Actions button.  Manages
+       exiting of any scanning loops that were defined with this
+       action and a break command
+       
+    Args:  None
+    
+    Returns:  None
+    """      
     listboxTop()
     cancelActions(True)
 
 
-def posCol(inc,val):
+def posC(inc, val = None):
+    """Increments or resets column position for Tkinter
+       objects using grid settings
+       
+    Args:  inc (int) - value to increment columns by
+           val (int) - value to reset base column position
+    
+    Returns:  rowPos (int) - new row position value
+    """      
     global colPos
     
-    val = None
+    if val is not None:
+        colPos = val
     
     if inc == 0:
         colPos = 0
     colPos += inc
     return colPos
     
-def pos(inc,val):
+def pos(inc, val = None):
+    """Increments or resets row position for Tkinter
+       objects using grid settings
+       
+    Args:  inc (int) - value to increment rows by
+           val (int) - value to reset base row position
+    
+    Returns:  rowPos (int) - new row position value
+    """   
     global rowPos
     
-    val = None
+    if val is not None:
+        rowPos = val
     
     if inc == 0:
         rowPos = 0
@@ -2284,6 +2335,14 @@ def pos(inc,val):
     return rowPos
 
 def btnTxtUpdates():
+    """Method meant to update button text under the action frame,
+       especially based on the checkboxes in the 'Options that prevent
+       user updates' frame.
+       
+    Args:  None
+    
+    Returns:  None
+    """   
     global btnOpenDeleteText
     global btnDeleteInactiveText
     
@@ -2327,6 +2386,13 @@ def btnTxtUpdates():
     #mainloop()
     #root.update_idletasks()
 def logConfigBox():
+    """Method meant to display secondary popup window that contains
+       configuration settings for the log window
+       
+    Args:  None
+    
+    Returns:  None
+    """   
     
     global logConfig
     try:
@@ -2745,7 +2811,8 @@ elblAPIBody = Label(frameAPI, text="Body (JSON)")
 etxtAPIBody = Entry(frameAPI)
 
 
-elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
+elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api", fg="blue", cursor="hand2")
+elblAPIURL.bind("<Button-1>", lambda e: urlOpen("https://marketplace.zoom.us/docs/api-reference/zoom-api"))
 elblAPI = Label(frameAPI, text="Commmand (URL End)")
 etxtAPI = Entry(frameAPI)
     
