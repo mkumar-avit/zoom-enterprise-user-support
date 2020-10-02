@@ -30,7 +30,7 @@ The program will retrieve a single user in multiple Zoom groups, but at this tim
 
 ## GUI
 ![Alt text](https://github.com/mkumar-avit/zoom-mass-de-provisioning/blob/master/Zoom%20Zeus.png?raw=true "Current GUI")
-
+![Alt text](https://github.com/mkumar-avit/zoom-mass-de-provisioning/blob/master/Zoom%20Zeus%20log%20config.png?raw=true "user inteface - log configuration settings.")
 
 ## Requirements
 User needs to have a minimum of a 1080P height resolution to comfortably view the entire program GUI.  Future updates are planned to change this to a much lower resolution.
