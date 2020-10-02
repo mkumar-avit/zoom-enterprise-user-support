@@ -2695,15 +2695,20 @@ for text, mode in RADIOMODES:
 try:
     apiDict = openAPIList()
     apiCategoryList = []
+    apiCmdCount = 0
     apiCommandList = []
     for cat in apiDict:
         apiCategoryList.append(cat)
+        apiCmdCount += len(apiDict[cat])
 
     for cmd in apiDict[cat]:
         apiCommandList.append(cmd)
+    logging(f"Retrieved {len(apiCategoryList)} API categories and {apiCmdCount} commands") 
 except:
     apiCategoryList = None
     apiCommandList = None
+
+
 
 if apiCategoryList != None:
     apiCategories = StringVar(root)
@@ -2721,8 +2726,10 @@ if apiCategoryList != None:
     #etxtAPI.delete(0, END)
     #etxtAPI.insert(0, "/report/operationlogs")
 
+    emenuAPICat.bind("<<ComboboxSelected>>", menuAPICategory)
     emenuAPICmd.bind("<<ComboboxSelected>>", menuAPICommand)
-  
+    
+    
     eLblAPICat.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
     emenuAPICat.grid(row = rowPos, column = 2, columnspan=4, sticky = W)    
     eLblAPICmd.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
