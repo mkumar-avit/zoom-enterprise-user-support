@@ -64,7 +64,7 @@ Currently not used
 #### LDAP Password
 Currently not used
 
-### Options taht prevent user updates
+### Options that prevent user updates
 #### Change user to Basic (No Deletes)
 Checkbox will toggle to allow user deletes (when off), or update user to "Basic" license type (when on).  Button text will update in Action buttons that are applicable
 #### Check for Upcoming Meetings
@@ -94,6 +94,6 @@ Toggles to either assign or remove a webinar license for user
 #### Large Mtg
 Toggles to either assign or remove a Large Meeting license for user
 #### Delete
-Button to Delete user from Zoom account (currently not functional)
+Button to Delete user from Zoom account (enabled when the checkbox "Change user to Basic (No Deletes)" is disabled) 
 
 
