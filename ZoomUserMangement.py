@@ -82,7 +82,7 @@ API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
 API_FILE = 'ZoomAPI.json'
-
+SETTINGS_FILE = "Zoom Group Setting Tracking.csv"
 ## GLOBAL VARIABLES ##
 maxMonths = 0
 maxNum = 0
@@ -115,6 +115,7 @@ apiURL =\
         'subaccount':'v2/accounts',
         'recording':'v2/users/@/recordings',
         'settings':'v2/users/@/settings',
+        'acctSettings':'v2/accounts/@/settings',
         'logout':'v2/users/@/token',
         'logs':'v2/report/operationlogs',
         'signin':'v2/report/activities',
@@ -709,6 +710,7 @@ def set_user_Email(userID, newEmail):
     
     try:
         send_REST_request('emailUpdate', data=userID, body=update, rType = "put", note=f"Attempt to Update Zoom acct user {eEmail.get()} to {newEmail}")
+        update_userDB(userID, "Email", newEmail)
     except Exception as e:
         logging(f"user {eEmail.get()} email update failed.  {e}")
         PrintException()
@@ -734,10 +736,36 @@ def get_userID(userEmail):
 def delete_user(userID, userEmail=""):
     logging (f'Attempting to delete {userEmail}')
     
-    
     deleteStatus = send_REST_request('user', data = userID, param = {"action":"delete"}, rType = "delete", note=userEmail)
     
+    if '204' in deleteStatus:
+        update_userDB("Email",userID, None)
+
+
+def update_userDB(userID, category, value):
+    global userDB
+      
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
+    userIDIdx = 2
+
+    itemIdx = userDBdef.index(category)
     
+    
+    
+    for user in userDB:
+        if userID in user[userIDIdx]:
+            if category == userDBdef[userIDIdx] and value == None:
+                userDB.remove(user)
+                break
+            else:
+                idx = userDB.index(user)
+                userDB[idx][itemIdx] = value
+                break
+    
+
+
+
+
 def UpdateUser_Delete():
     listboxTop()
     
@@ -792,18 +820,21 @@ def UpdateUser_Info():
                 
                 try:
                     k = ''
-                    if user[groupIdx] != 'No Group':
+                    if user[groupIdx] == 'No Group':
+                        group = "AcctSetting"
+                    else:
                         groups = user[groupIdx].split(":  ")
                         group = groups[1]
-                        for category in userSettings:
-                            try:
-                                groupVal = groupDB[group][category]
-                                userVal = userSettings[category]
-                                diffSettings = {k: userVal[k] for k in groupVal if k in userVal and groupVal[k] != userVal[k]}
-                                logging(diffSettings)
-                            except:
-                                None
-                        logging(f'#Differences to group settings {len(diffSettings)}, {k}')
+                        
+                    for category in userSettings:
+                        try:
+                            groupVal = groupDB[group][category]
+                            userVal = userSettings[category]
+                            diffSettings = {k: userVal[k] for k in groupVal if k in userVal and groupVal[k] != userVal[k]}
+                            logging(diffSettings)
+                        except:
+                            None
+                    logging(f'#Differences to group settings {len(diffSettings)}, {k}')
                 except Exception as e:
                     logging(f'#Error in group setting comparison: {e}')
                     PrintException()
@@ -1138,7 +1169,18 @@ def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
         }   
     
     send_REST_request('user', data=userID, body=data, rType = "patch", note=userDesc)
-    
+   
+    userLicense =\
+       {
+           "1":"Basic",
+           "2":"Licensed",
+           "3":"On-Prem"
+       }
+   
+   
+    update_userDB(userID, "License", userLicense[str(userType)])
+      
+
 
 
 def monthsDate(startDate, endDate):
@@ -1483,43 +1525,23 @@ def get_users_settings():
     except Exception as e:
         logging (f'Error with creating file: {e}')
 
-def get_groups_settings(groupData):
-    global cancelAction
-    global groupDB
+def save_acct_settings(settingsDB):
     
-    listboxTop()
-    cancelActions(False)
-    fileName = "Zoom Group Setting Tracking.csv"
-    groupDB = {}      
     try:
-        count = 0
-        with open(fileName, 'w', newline='') as csvFile:
+        with open(SETTINGS_FILE, 'w', newline='') as csvFile:
             writer = csv.DictWriter(csvFile, fieldnames = ["Group", "Category", "Setting","Value"])
-            writer.writeheader()
-            
-            for groupID in groupData:
-                if cancelAction is True:
-                    cancelAction = False
-                    break
-                
-                count += 1
-                root.update_idletasks()
-                
-                group = groupData[groupID]
-                logging(f'{count} Retrieving {group} settings')
-                groupSettings = get_group_settings(groupID, count)
-                try:
-                    groupDB[group] = groupSettings
-                except:
-                    PrintException()
-                    logging(f'###Error:{e}')
+            writer.writeheader()                
+        
+            for group in settingsDB:
+                groupSettings = settingsDB[group]
+    
                 tally = {}
                 csvRow = {\
                     "Group": group,
                     "Category":"",
                     "Setting":"",
                     "Value":""
-                    }
+                }
                 
                 if groupSettings != {}:
                     try:
@@ -1550,7 +1572,37 @@ def get_groups_settings(groupData):
                         PrintException()
                         #None               
     except Exception as e:
-        logging (f'Error with creating file: {e}')
+        logging (f'Error with creating file: {e}')    
+    
+def get_groups_settings(groupData):
+    global cancelAction
+    global groupDB
+    
+    listboxTop()
+    cancelActions(False)
+    groupDB = {}      
+    count = 0
+    
+    logging(f'{count} Retrieving Account settings')
+    groupDB['AcctSetting'] = get_acct_settings()
+        
+        
+    for groupID in groupData:
+        if cancelAction is True:
+            cancelAction = False
+            break
+        
+        count += 1
+        group = groupData[groupID]
+        logging(f'{count} Retrieving {group} settings')
+        groupSettings = get_group_settings(groupID, count)
+        try:
+            groupDB[group] = groupSettings
+        except:
+            PrintException()
+            logging(f'###Error:{e}')
+        
+    save_acct_settings(groupDB)   
 
 
 def get_group_settings(groupID, count = 0):   
@@ -1574,7 +1626,32 @@ def get_group_settings(groupID, count = 0):
         print(f'Error getting Settings: {e}')
     
     return groupSettings
-        
+
+def get_acct_settings():
+    acctSettings = {}
+    
+    try:
+        acctID = "me"
+        timeStart = time.time()
+        acctSettings = send_REST_request('acctSettings', data = acctID, rType = "get")
+        acctSettings2 = send_REST_request('acctSettings', data = acctID, param = {"option":"meeting_authentication"}, rType = "get")
+        acctSettings3 = send_REST_request('acctSettings', data = acctID, param = {"option":"recording_authentication"}, rType = "get")
+        acctSettings4 = send_REST_request('acctSettings', data = acctID, param = {"option":"security"}, rType = "get")
+        acctSettings['auth'] = {}
+        acctSettings['auth'].update(acctSettings2)
+        acctSettings['rec_auth'] = {}
+        acctSettings['rec_auth'].update(acctSettings3)
+        acctSettings['securityAcct'] = {}
+        acctSettings['securityAcct'].update(acctSettings4)        
+        timeEnd = time.time()            
+        timeTotal = timeEnd - timeStart
+         
+    except Exception as e:
+        PrintException()
+        print(f'Error getting Account Settings: {e}')
+       
+    return acctSettings
+      
 def get_user_settings(userID,  count = 0):   
     userSettings = None
     
@@ -2154,7 +2231,12 @@ def resizeFuncAPICmd():
     emenuAPICmd.configure(width=maxWidth)
     root.update()
 
-
+def destroy_all_subwindows():
+    for widget in root.winfo_children():
+        if isinstance(widget, Toplevel):
+            logConfig['open'] = False
+            widget.destroy()
+            
 def clearLog():
     logging(f'Clearing Log...')
     listbox.delete(0,END)    
@@ -2403,7 +2485,8 @@ def logConfigBox():
         
     #if not logConfigWindow.top.winfo_exists():
     #logConfigWindow.top.lift(root)
-    
+    if logConfig['open'] is False:
+        destroy_all_subwindows()
     if logConfig['open'] == True:
         logConfigWindow = Toplevel(root)
         logConfigWindow.title('Log Settings')
@@ -2420,11 +2503,11 @@ def logConfigBox():
         chkbxLogWrap.grid(row = pos(1,rowPos) , column = 0, sticky = W)
         chkbxLogWrap.config(bd=2)
         
-        chkbxLogInactive = Checkbutton(frameConfig,text='Inactive Users', variable = logConfig['inactive'])
+        chkbxLogInactive = Checkbutton(frameConfig,text='Display Inactive Users', variable = logConfig['inactive'])
         chkbxLogInactive.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogInactive.config(bd=2)
         
-        chkbxLogNoGroup = Checkbutton(frameConfig,text='Users in no group', variable = logConfig['noGroup'])
+        chkbxLogNoGroup = Checkbutton(frameConfig,text='Display Users In No Group', variable = logConfig['noGroup'])
         chkbxLogNoGroup.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogNoGroup.config(bd=2)
         
