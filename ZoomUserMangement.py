@@ -586,21 +586,27 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 response = requests.put(url=api, json=body, headers=authHeader)
             elif rType == "patch":
                 response = requests.patch(url=api, json=body, headers=authHeader)
-                print(f'Response: {response}')
+                logging(f'Response: {response}')
                 #print(f'Details:{respData["detail"]}')
             elif rType == "delete":
-                logging(f"Attempting to force delete-type REST request!!")
+                logging(f"Sending delete REST request!!")
                 response = requests.delete(url=api, headers=authHeader)
-                logging(f'{note}: {response}')
+                status = response.status_code
+                if response.status_code == 204:
+                    msgRsp = "Succesfully deleted"
+                else:
+                    msgRsp = "Did not delete"
+                logging(f'{msgRsp} {note}: {response}')
         except Exception as e:
             logging(f'Send HTTP {rType} REST Request {api}, Response: {response}, Error:{e}')     
         try:
             status = response.status_code
             try:
                 respData = response.json()
+                print(f'Received HTTP REST Request {respData}')
             except Exception as e:
                 print(f'No JSON data in response from request: {e}')
-            print(f'Received HTTP REST Request {respData}')
+        
             
             if status == 404:
                 try:
@@ -731,12 +737,21 @@ def get_userID(userEmail):
         
     return None
 
+def delete_user(userID, userEmail=""):
+    logging (f'Attempting to delete {userEmail}')
+    
+    
+    deleteStatus = send_REST_request('user', data = userID, param = {"action":"delete"}, rType = "delete", note=userEmail)
+    
+    
 def UpdateUser_Delete():
     listboxTop()
     
-    
     userEmail = eEmail.get()
     userID =  get_userID(userEmail)
+    
+    delete_user(userID,userEmail)
+    
     
 def UpdateUser_Email():
     email = eEmail.get()
@@ -2222,10 +2237,12 @@ def btnTxtUpdates():
         scope = ' all'
     
     if chkBasic.get() == 1:
+        btnUpdateDelete["state"] = DISABLED
         inactiveTxt = f'Modify{scope} inactive users to Basic.  '
         emailTxt = 'Modify users via CSV email list to Basic.  '
         subAction = 'No Action'
     else:
+        btnUpdateDelete["state"] = "normal"
         inactiveTxt = f'Delete{scope} inactive users. '
         emailTxt = 'Delete users via CSV email list.'       
         subAction = 'To Basic'
@@ -2501,8 +2518,8 @@ btnUpdateWebinar.grid(row = rowPos, column = colPos + 6)
 btnUpdateLargeMtg = Button(frameUserBtn, text="Large Mtg", width=8, command=UpdateUser_LargeMtg)
 btnUpdateLargeMtg.grid(row = rowPos, column = colPos + 7)
 
-btnUpdateLargeMtg = Button(frameUserBtn, text="Delete", width=8, command=UpdateUser_Delete, state=DISABLED)
-btnUpdateLargeMtg.grid(row = rowPos, column = colPos + 8)
+btnUpdateDelete = Button(frameUserBtn, text="Delete", width=8, command=UpdateUser_Delete, state=DISABLED)
+btnUpdateDelete.grid(row = rowPos, column = colPos + 8)
 
 btnCancel = Button(frameLog, text="Cancel Action", width=15, command=cancelActionsBtn, state=DISABLED)
 btnCancel.grid(row = 1, column = 1, sticky = W)
