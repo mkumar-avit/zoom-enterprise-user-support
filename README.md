@@ -47,7 +47,7 @@ The program will generate multiple files, based on your choice of actions in the
 
 ### Required Info
 #### Open Credentials file
-(optional) Open a CSV file that contains the API Key, API Secret, Domain, LDAP Host LDAP Login, and LDAP Password.   This is not a recommended method since this is pulling data from a cleartext source.   May investigate alternatives in the future like LastPass integration.
+(optional) Open a CSV file that contains the API Key, API Secret, Domain, LDAP Host LDAP Login, and LDAP Password.  This is not a recommended method since this is pulling data from a cleartext source.   May investigate alternatives in the future like LastPass integration.
 #### API Key
 API Key pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
 
@@ -69,31 +69,55 @@ Currently not used
 Checkbox will toggle to allow user deletes (when off), or update user to "Basic" license type (when on).  Button text will update in Action buttons that are applicable
 #### Check for Upcoming Meetings
 Checkbox will toggle checking if a user has an upcoming scheduled meeting in zoom, and prevent the user from being deleted/updated.   Button text will update in Action buttons that are applicable
+### Log Window
+#### Cancel Action
+Will end any processing that is happening (i.e. retrieving all user Data, backing user settings,..) that may have long processing times.  Any data pulled to the point that the Cancel Action button was triggered will be saved or processed.
+
+#### Clear Log
+Will clear contents of log window, and if Save File is enabled will start an new timestamped log file.
+
+#### Progress Bar
+Shows progress of any action that has long processing times
+
+#### Log window
+This is a list box that contains text of any action the program is performing on Zoom.  The contents will be automatically saved to a log file as it is updated (if that feature is enabled).  Selecting an item in the log window that contains the '@' symbol will populate the user email field below with that value.
+
+#### Log config
+This will bring up another window with options for what should be displayed in the log window.
 
 ### User Configuration
 #### User Email
 User email address that is linked to the buttons in the User Configuration frame.  Must first trigger "Retrieve All User Data" button for this to work appropriately
+
 #### Op Log
 Button that will pull that last 300 operation log entries and see if there are any entries that match the user email.  Contents will be placed into the log window.
+
 #### Signing Log
 Button that will pull the last 300 sign in/sign out log entries and see if there are any entries that match the user email.  Contents will be placed into the log window.
+
 #### Updated Email
 If the user has a new email address (perhaps they had a name change), you can update their account to reflect their new email address.  Enter the user's new email address here.
+
 #### Update
 Button that will trigger updating the User Email to be changed to the Updated Email (currently this feature does not update the retrieved user data, so you will have to "Retrieve All User Data" again to be able to use the new email with the "User Email" field.
+
 #### Info
 Pulls info on User Email including:  number of cloud recordings, difference in settings to the group settings they may be in, last sign in, client version, number of meetings listed in zoom records, Zoom user ID, and a few other items.
+
 #### Log Out
 Will revoke the SSO Token for the user and in effect, log them out of all devices they are using Zoom with.
+
 #### Licensed
 Will assign user "Licensed" status in Zoom
+
 #### Basic
 Will assign user "Basic" status in Zoom
+
 #### Webinar
 Toggles to either assign or remove a webinar license for user
+
 #### Large Mtg
 Toggles to either assign or remove a Large Meeting license for user
+
 #### Delete
 Button to Delete user from Zoom account (enabled when the checkbox "Change user to Basic (No Deletes)" is disabled) 
-
-
