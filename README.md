@@ -32,3 +32,59 @@ The program will retrieve a single user in multiple Zoom groups, but at this tim
 
 ## Requirements
 User needs to have a minimum of a 1080P height resolution to comfortably view the entire program GUI.  Future updates are planned to change this to a much lower resolution.
+
+
+## Button Functionality
+
+### Required Info
+#### Open Credentials file
+(optional) Open a CSV file that contains the API Key, API Secret, Domain, LDAP Host LDAP Login, and LDAP Password.   This is not a recommended method since this is pulling data from a cleartext source.   May investigate alternatives in the future like LastPass integration.
+#### API Key
+API Key pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
+
+#### API Secret
+API Secret pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
+
+#### Email Domain
+(optional) Enter your organization's domain, and and entries that are clicked in the log window that contain the domain will automatically populate the User Email field
+
+#### LDAP Host
+Currently not used
+#### LDAP Login
+Currently not used
+#### LDAP Password
+Currently not used
+
+### Options taht prevent user updates
+#### Change user to Basic (No Deletes)
+Checkbox will toggle to allow user deletes (when off), or update user to "Basic" license type (when on).  Button text will update in Action buttons that are applicable
+#### Check for Upcoming Meetings
+Checkbox will toggle checking if a user has an upcoming scheduled meeting in zoom, and prevent the user from being deleted/updated.   Button text will update in Action buttons that are applicable
+
+### User Configuration
+#### User Email
+User email address that is linked to the buttons in the User Configuration frame.  Must first trigger "Retrieve All User Data" button for this to work appropriately
+#### Op Log
+Button that will pull that last 300 operation log entries and see if there are any entries that match the user email.  Contents will be placed into the log window.
+#### Signing Log
+Button that will pull the last 300 sign in/sign out log entries and see if there are any entries that match the user email.  Contents will be placed into the log window.
+#### Updated Email
+If the user has a new email address (perhaps they had a name change), you can update their account to reflect their new email address.  Enter the user's new email address here.
+#### Update
+Button that will trigger updating the User Email to be changed to the Updated Email (currently this feature does not update the retrieved user data, so you will have to "Retrieve All User Data" again to be able to use the new email with the "User Email" field.
+#### Info
+Pulls info on User Email including:  number of cloud recordings, difference in settings to the group settings they may be in, last sign in, client version, number of meetings listed in zoom records, Zoom user ID, and a few other items.
+#### Log Out
+Will revoke the SSO Token for the user and in effect, log them out of all devices they are using Zoom with.
+#### Licensed
+Will assign user "Licensed" status in Zoom
+#### Basic
+Will assign user "Basic" status in Zoom
+#### Webinar
+Toggles to either assign or remove a webinar license for user
+#### Large Mtg
+Toggles to either assign or remove a Large Meeting license for user
+#### Delete
+Button to Delete user from Zoom account (currently not functional)
+
+
