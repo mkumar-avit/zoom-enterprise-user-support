@@ -791,7 +791,7 @@ def UpdateUser_Info():
     userIDIdx = 2
     licenseIdx =  8
     groupIdx = 7
-    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive"]
     
     userEmail = eEmail.get()
     try:
@@ -834,7 +834,7 @@ def UpdateUser_Info():
                             logging(diffSettings)
                         except:
                             None
-                    logging(f'#Differences to group settings {len(diffSettings)}, {k}')
+                    logging(f'# of differences to group settings: {len(diffSettings)}, {k}')
                 except Exception as e:
                     logging(f'#Error in group setting comparison: {e}')
                     PrintException()
@@ -976,12 +976,8 @@ def xref_UpdateUser(userList):
     meetings = None
     noDeletes = None
     
-
-
-  
-            
     
-    chkParam = [False, False, False, False]
+    chkParam = [False, False, False, False, False]
         
     for email in userList:
         userCount += 1
@@ -1022,16 +1018,42 @@ def xref_UpdateUser(userList):
                 if chkBasic.get() == 1:
                     chkParam[3] = True
             
-                   
+                 
+                group = filterGroup.get()
+                
+                if group == 'All Users':
+                    group == None
+                elif group == 'Users in no Groups':
+                    group = 'No Group'
+                    
+                if group != None:
+                    if user[groupIdx] == group or group == None:
+                        chkParam[4] = False
+                    else:
+                        chkParam[4] = True
+                 
+                 
                 try:
                     if True not in chkParam:
-                        delete_users_list(user[userIDIdx], email)
+                        # No checkboxes, and group matches, just delete
+                        if logConfig['test'].get() == 0:
+                            delete_users_list(user[userIDIdx], email)
+                        else:
+                            logging(f"TESTING: {email} is being deleted.")
+                            
                     elif chkParam[3] is True:
+                        # If No Deletes is enabled then send user to basic
+                        # no other parameters are true
                         chkParam[3] = False
                         if True not in chkParam:
-                            modify_user_license(user[userIDIdx],email, userLicense)
+                            if logConfig['test'].get() == 0:
+                                modify_user_license(user[userIDIdx],email, userLicense)
+                            else:
+                                logging(f"TESTING:  {email} is being modified to {userLicense}.")
                         else:
                             logging(f"{email} is not being deleted or modified.")
+                    
+                    
                     else:
                         logging("{} is not being deleted or modified.".format(email))     
                 except Exception as e:
@@ -1052,30 +1074,46 @@ def start_modify_user(email):
     recordings = 0
     months = ""
     progress_var.set(0)
-    
+    counter = 0
     monthsActive = None
     recMonths = None
     meetings = None
     noDeletes = None
     
-    chkParam = [False, False, False, False]
-    logging(f'Cross ref {email} with retrieved users')   
+    chkParam = [False, False, False, False, False]   
     for user in userDB:
         if user[emailIdx] == email:
             userGroup = user[7]
             userLicense = user[8]
             months = user[9]
             
-            if chkActivity.get() == 1:
+            modifyLicense = "Basic"
+            
+            userGroup = extract_group(user[groupIdx])
+            
+            group = filterGroup.get()
+            
+            if group == 'All Users':
+                group == None
+            elif group == 'Users in no Groups':
+                group = 'No Group'
+                
+            if group is not None:
+                if userGroup == group:
+                    chkParam[4] = False
+                else:
+                    chkParam[4] = True            
+            
+            if chkActivity.get() == 1 and chkParam[4] == False:
                 try:
                     monthsActive = int(eActiveUser.get())
                 except:
                     monthsActive = 0
                
-                if months <= monthsActive:
+                if months <= monthsActive :
                     chkParam[0] = True
                         
-            if chkRec.get() == 1:
+            if chkRec.get() == 1 and chkParam[4] == False:
                 try:
                     recMonths = int(eRecMonths.get())
                 except:
@@ -1088,7 +1126,7 @@ def start_modify_user(email):
                
                 logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
                 
-            if chkMeetings.get() == 1:
+            if chkMeetings.get() == 1 and chkParam[4] == False:
                 (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIDIdx])
                 if meetingScheduled > 0:
                     chkParam[2] = True
@@ -1096,26 +1134,45 @@ def start_modify_user(email):
             if chkBasic.get() == 1:
                 chkParam[3] = True
         
-               
-            try:
-                if True not in chkParam:
-                    delete_users_list(user[userIDIdx], email)          
-                elif chkParam[3] is False:
-                    if True in chkParam:
-                        modify_user_license(user[userIDIdx],email, userLicense)   
-                elif chkParam[3] is True:
-                    chkParam[3] = False
+
+
+                            
+                try:
                     if True not in chkParam:
-                        modify_user_license(user[userIDIdx],email, userLicense)
+                        # No checkboxes, and group matches, just delete
+                        if logConfig['test'].get() == 0:
+                            delete_user(user[userIDIdx],userEmail)
+                        else:
+                            logging(f"TESTING: {user[groupIdx]},{email} is being deleted.")
+                        return 1
+                    elif chkParam[3] is True:
+                        # If No Deletes is enabled then send user to basic
+                        # no other parameters are true
+                        chkParam[3] = False
+                        if True not in chkParam:
+                            if logConfig['test'].get() == 0:
+                                modify_user_license(user[userIDIdx],email, userLicense)
+                            else:
+                                logging(f"TEST: {user[groupIdx]}, {email} is being modified to {modifyLicense}.")
+                            return 1
+                        else:
+                            pass
+                            #logging(f"{email} is not being deleted or modified.")
                     else:
-                        logging(f"{email} is not being deleted or modified.")
-                else:
-                    logging("{} is not being deleted or modified.".format(email))     
-            except Exception as e:
-                logging(f'Error Updating User: {e}')
+                        pass
+                        #logging(f"{email} is not being deleted or modified.")     
+                except Exception as e:
+                    logging(f'Error Updating User: {e}')
+    return 0
+
+def extract_group(group):
+    if group != 'No Group':
+        userGroups = group.split(":  ")
+        userGroup = userGroups[1]
+    else:
+        userGroup = group
         
-
-
+    return userGroup
 def get_group_data():
     groupData = {}
         
@@ -1286,7 +1343,7 @@ def delete_users_list(userID, userDesc):
     api = f"v2/users/{userID}"
     api = f"{api}?action=delete"
     
-    send_REST_request(api, data="", param = "", rType = "delete", note = 'userDesc')
+    send_REST_request(api, data="", param = "", rType = "delete", note = f'{userDesc}')
     
     
     
@@ -1668,7 +1725,8 @@ def get_user_settings(userID,  count = 0):
         
         timeEnd = time.time()            
         timeTotal = timeEnd - timeStart
-        btnSettingsText.set(f"Backup User Settings {timeTotal:.2f}s per user/{((timeTotal*(len(userDB)-count))/60):.3f}mins")          
+        btnSettingsText.set(f"Backup User Settings {timeTotal:.2f}s per user/{((timeTotal*(len(userDB)-count))/60):.3f}mins")
+        root.update()
     except Exception as e:
         PrintException()
         print(f'Error getting Settings: {e}')
@@ -2064,32 +2122,28 @@ def Relicense_Inactive():
     #userInactive = [userID,userLoginMonths, userFirstName, userLastName, userLicense,userEmail]
     global cancelAction
     counter = 0
-    value = MAX_NUM
     progress_var.set(0)
     usersCnt = len(userInactiveDB)
-    
-    logging(f'Relicensing {usersCnt} users')
+    userCounter = 0
+    logging(f'Examining {usersCnt} users for modification')
     cancelActions(False)
+    
     for userData in userInactiveDB:
         if cancelAction is True:
             cancelAction = False
-            break
-        
-        
-        
-        if counter >= value and value != 0:
             break
         
         #userID = userData[0]
         userEmail = userData[5]
         userName = "{}".format(userEmail)
         userLicense = userData[4]
-        logging('Modifying: {}, {} License'.format(userName,userLicense))
-        start_modify_user(userEmail)
+        #logging(f'{counter} Modifying: {userName}, {userLicense} License')
+        userCounter += start_modify_user(userEmail)
         #modify_user_license(userID,userName, userLicense)
         counter += 1
         progress_var.set(int((counter/usersCnt)*100))
-        
+    logging (f'{userCounter} users modified.')
+    
 def onListSelect(event):
     global eDomain
     global eEMail
@@ -2246,6 +2300,7 @@ def callback():
     global listbox
     global userDB
     global cancelAction
+    global groupFilterList
     
     startTime = time.time()
     cancelActions(False)
@@ -2254,7 +2309,15 @@ def callback():
     #listbox.delete(0,END)
     zoom_token_auth()
     groupsData = get_group_data()
-            
+     
+    ## Update ComboBox
+    groupFilterList.clear()
+    groupFilterList = ['All Users','No Group']
+    for group in groupsData:
+        groupFilterList.append(groupsData[group])
+        
+    emenuGroupFilter['values'] = groupFilterList
+     
     get_groups_settings(groupsData)
             
     #testdata
@@ -2519,6 +2582,9 @@ def logConfigBox():
         chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxDebug.config(bd=2)
 
+        chkbxTest = Checkbutton(frameConfig,text='Testing Mode', variable = logConfig['test'])
+        chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
+        chkbxTest.config(bd=2)
 
 rowPos = 0
 colPos = 0
@@ -2668,6 +2734,14 @@ btnRoles.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSE
 #btnSAMLReorg.pack()
 #btnOpen = Button(root, text="Save Log", width=30, command=logSave)
 #btnOpen.pack()
+elblFilter = Label(frameStep2, text= "Limit to   ")
+elblFilter.grid(row=rowPos, column = colPos + 2, sticky = W)
+
+filterGroup = StringVar()
+groupFilterList = ['All Users','Users in no Groups']
+filterGroup.set(groupFilterList[0])
+emenuGroupFilter = ttk.Combobox(frameStep2, textvariable=filterGroup, values=groupFilterList)
+emenuGroupFilter.grid(row=rowPos, column = colPos + 2, sticky = E)
 
 
 chkBasic = IntVar(value=1)
@@ -2724,6 +2798,8 @@ eDate = Entry(frameStep2)
 eDate.grid(row = rowPos, column = colPos + 2,sticky = E)
 eDate.delete(0, END)
 eDate.insert(0, "01/01/2019")
+
+
 
 
 frameUserFields = LabelFrame(frameUser)
@@ -2814,6 +2890,7 @@ logConfig['inactive'] = IntVar(value = 1)
 logConfig['noGroup'] = IntVar(value = 1)
 logConfig['save'] = IntVar(value = 1)
 logConfig['debug'] = IntVar()
+logConfig['test'] = IntVar()
 
 
 
