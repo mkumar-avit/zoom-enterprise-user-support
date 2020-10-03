@@ -1094,7 +1094,7 @@ def start_modify_user(email):
             group = filterGroup.get()
             
             if group == 'All Users':
-                group == None
+                group = None
             elif group == 'Users in no Groups':
                 group = 'No Group'
                 
