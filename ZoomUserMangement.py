@@ -1098,11 +1098,8 @@ def start_modify_user(email):
             elif group == 'Users in no Groups':
                 group = 'No Group'
                 
-            if group is not None:
-                if userGroup == group:
-                    chkParam[4] = False
-                else:
-                    chkParam[4] = True            
+            if group is not None and userGroup != group:
+                chkParam[4] = True            
             
             if chkActivity.get() == 1 and chkParam[4] == False:
                 try:
@@ -1134,35 +1131,33 @@ def start_modify_user(email):
             if chkBasic.get() == 1:
                 chkParam[3] = True
         
-
-
                             
-                try:
+            try:
+                if True not in chkParam:
+                    # No checkboxes, and group matches, just delete
+                    if logConfig['test'].get() == 0:
+                        delete_user(user[userIDIdx],userEmail)
+                    else:
+                        logging(f"TESTING: {user[groupIdx]},{email} is being deleted.")
+                    return 1
+                elif chkParam[3] is True:
+                    # If No Deletes is enabled then send user to basic
+                    # no other parameters are true
+                    chkParam[3] = False
                     if True not in chkParam:
-                        # No checkboxes, and group matches, just delete
                         if logConfig['test'].get() == 0:
-                            delete_user(user[userIDIdx],userEmail)
+                            modify_user_license(user[userIDIdx],email, userLicense)
                         else:
-                            logging(f"TESTING: {user[groupIdx]},{email} is being deleted.")
+                            logging(f"TEST: {user[groupIdx]}, {email} is being modified to {modifyLicense}.")
                         return 1
-                    elif chkParam[3] is True:
-                        # If No Deletes is enabled then send user to basic
-                        # no other parameters are true
-                        chkParam[3] = False
-                        if True not in chkParam:
-                            if logConfig['test'].get() == 0:
-                                modify_user_license(user[userIDIdx],email, userLicense)
-                            else:
-                                logging(f"TEST: {user[groupIdx]}, {email} is being modified to {modifyLicense}.")
-                            return 1
-                        else:
-                            pass
-                            #logging(f"{email} is not being deleted or modified.")
                     else:
                         pass
-                        #logging(f"{email} is not being deleted or modified.")     
-                except Exception as e:
-                    logging(f'Error Updating User: {e}')
+                        #logging(f"{email} is not being deleted or modified.")
+                else:
+                    pass
+                    #logging(f"{email} is not being deleted or modified.")     
+            except Exception as e:
+                logging(f'Error Updating User: {e}')
     return 0
 
 def extract_group(group):
@@ -2135,9 +2130,8 @@ def Relicense_Inactive():
         
         #userID = userData[0]
         userEmail = userData[5]
-        userName = "{}".format(userEmail)
         userLicense = userData[4]
-        #logging(f'{counter} Modifying: {userName}, {userLicense} License')
+        #logging(f'{counter} Examining: {userEmail}, {userLicense} License')
         userCounter += start_modify_user(userEmail)
         #modify_user_license(userID,userName, userLicense)
         counter += 1
