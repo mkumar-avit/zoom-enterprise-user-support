@@ -808,7 +808,7 @@ def UpdateUser_Info():
                 
                 
                 try:
-                    userSettings = get_user_settings(user[userIDIdx],  count = 0)
+                    userSettings = get_user_settings(user[userIDIdx], type=2, count = 0)
                    
                     for setting in userSettings['feature']:
                         text = setting.replace("_", " ")
@@ -877,7 +877,7 @@ def updateUser_Feature(feature):
     listboxTop()
     userEmail = eEmail.get()
     userID =  get_userID(userEmail)
-    userSetting = get_user_settings(userID,  count = 0)
+    userSetting = get_user_settings(userID, type = 2,  count = 0)
     
     state = not userSetting['feature'][feature]
     
@@ -892,7 +892,7 @@ def updateUser_Feature(feature):
     logging (f'Attempting to set {feature} to {state}')
     updateFeature = send_REST_request('settings', data = userID, body = update, rType = "patch")
      
-    userSetting = get_user_settings(userID,  count = 0)
+    userSetting = get_user_settings(userID, type = 2,  count = 0)
       
     if userSetting['feature'][feature] != state:
         logging (f'Failed to set {feature} to {state}')
@@ -1532,7 +1532,7 @@ def get_users_settings():
                 
                 if flagFindUser == 0:
                     logging(f'{count} Retrieving {group}, {email} settings')
-                    userSettings = get_user_settings(userID,  count)
+                    userSettings = get_user_settings(userID, type = 3, count=count)
                     #csvRow = proc_user_settings(userSettings, group, email)
                     tally = {}
                     csvRow = {\
@@ -1704,19 +1704,22 @@ def get_acct_settings():
        
     return acctSettings
       
-def get_user_settings(userID,  count = 0):   
+def get_user_settings(userID, type = 2, count = 0):   
     userSettings = None
     
     try:
         
         timeStart = time.time()
-        userSettings = send_REST_request('settings', data = userID, rType = "get")
-        userSettings2 = send_REST_request('settings', data = userID, param = {"option":"meeting_authentication"}, rType = "get")
-        userSettings3 = send_REST_request('settings', data = userID, param = {"option":"recording_authentication"}, rType = "get")
-        userSettings['auth'] = {}
-        userSettings['auth'].update(userSettings2)
-        userSettings['rec_auth'] = {}
-        userSettings['rec_auth'].update(userSettings3)
+        if type == 0:
+            userSettings = send_REST_request('settings', data = userID, rType = "get")
+        if type <= 1:
+            userSettings2 = send_REST_request('settings', data = userID, param = {"option":"meeting_authentication"}, rType = "get")
+            userSettings['auth'] = {}
+            userSettings['auth'].update(userSettings2)
+        if type <= 2:
+            userSettings3 = send_REST_request('settings', data = userID, param = {"option":"recording_authentication"}, rType = "get")   
+            userSettings['rec_auth'] = {}
+            userSettings['rec_auth'].update(userSettings3)
         
         timeEnd = time.time()            
         timeTotal = timeEnd - timeStart
@@ -2587,17 +2590,17 @@ colPosMax = 6
 # Build Primary Window
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
-root.title('Zeus Tool:  Zoom Enterprise User Scan Tool v0.7.10')
+root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.10')
 root.resizable(height = False, width = False)
 
 
-#try:
-#    background_image=PhotoImage('.\bgimage.png')
-#    background_label = Label(root, image=background_image)
-#    background_label.photo=background
-#    background_label.place(x=0, y=0, relwidth=900, relheight=900)
-#except Exception as e:
-#print(f'Image Error: {e}')
+try:
+    background_image=PhotoImage('.\image\ZeusT-BG.png')
+    background_label = Label(root, image=background_image)
+    background_label.photo=background
+    background_label.place(x=0, y=0, relwidth=1015, relheight=650)
+except Exception as e:
+    print(f'Image Error: {e}')
 
 #Display Title within application
 
