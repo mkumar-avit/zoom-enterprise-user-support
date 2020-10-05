@@ -57,7 +57,7 @@ Email Frame:
 
 ## IMPORTS ##
 import datetime
-#from PIL import Image, ImageTk
+from PIL import Image, ImageTk
 import csv
 import json
 import jwt
@@ -88,6 +88,29 @@ maxMonths = 0
 maxNum = 0
 cancelAction = False
 fileLog = ""
+
+colors =\
+       {
+           'blue':'#51608C',
+           'gray':'#8697A6',
+           'blue-gray':'#BFCDD9',
+           'light-brown':'#BF8756',
+           'brown':'#8C4F2B'
+        }
+
+
+colorScheme =\
+       {
+           '0':'#000000',
+           '1':'#FFFFFF',
+           '2':'#51608C',
+           '3':'#8697A6',
+           '4':'#BFCDD9',
+           '5':'#BF8756',
+           '6':'#8C4F2B'
+        }
+
+
 dateStr=\
     {
         'log':'%m/%d/%y %H:%M:%S.%f',
@@ -2475,7 +2498,106 @@ def pos(inc, val = None):
         rowPos = 0
     rowPos += inc
     return rowPos
+def menuButtonFeedback(idx):
+    global btnMenu
+    
+    #Mutually Exclusive button feedback
+    for button in btnMenu:
+        if btnMenu.index(button) is idx:
+            button['bg']= colorScheme['1']
+            button['fg']= colorScheme['3']
+            button['activebackground'] = colorScheme['2']
+            button['activeforeground'] = colorScheme['4']
+            button['relief']='sunken'
+        else:
+            button['bg']= colorScheme['2']
+            button['fg']= colorScheme['4']
+            button['activebackground'] = colorScheme['1']
+            button['activeforeground'] = colorScheme['3']
+            button['relief']='flat'
+    root.update()
 
+
+def menuButtons(idx):
+    
+    menuButtonFeedback(idx)
+    
+    for fControl in frameControls:
+        try:
+            fControl.grid_remove()
+        except Exception as e:
+            PrintException()
+    
+    frameControls[idx].grid()        
+    #frameControls[idx].configure(height=frameControls[0]["height"],width=frameControls[0]["width"])
+    #frameControls[idx].grid_propagate(0)
+    
+    if idx is 0:
+        frameControls[0]['text'] = 'SETTINGS'
+        frameStep1.grid(\
+            row = pos(0,rowPos),
+            column = posC(0,colPos),
+            columnspan = 3,
+            sticky = N
+        )
+        frameStep2.grid(\
+            row = pos(0,rowPos),
+            column = posC(1,3),
+            rowspan = 2, columnspan = 4,
+            sticky = NSEW
+        )
+       
+    elif idx is 1:
+        frameControls[idx]['text'] = 'ACCOUNT-LEVEL MANAGEMENT'
+        frameProcess.grid(\
+            row = pos(1,rowPos),
+            columnspan = int(colPosMax/3),
+            sticky = NSEW)
+
+        frameButtons.grid(\
+            row = pos(1,rowPos),
+            column= colPos + 0,
+            columnspan = colPosMax,
+            sticky = NSEW
+        )
+    elif idx is 2:
+        frameControls[idx]['text'] = 'USER-LEVEL MANAGEMENT'
+        frameUser.grid(\
+            row = pos(0,rowPos),
+            column = posC(0,colPos),
+            columnspan = 3,
+            sticky = NSEW
+        )
+    elif idx is 3:
+        frameControls[idx]['text'] = 'ZOOM API COMMANDS'
+        frameAPI.grid(\
+            row = pos(0,rowPos),
+            column = posC(0,colPos),
+            columnspan = 3,
+            sticky = NSEW
+        )
+    root.update()
+    print (f'Base Height: {frameControls[0].winfo_height()},  Frame Now: {frameControls[idx].winfo_height()}')
+    if frameControls[0].winfo_height() > frameControls[idx].winfo_height():
+        #(col,row) = frameControls[0].grid_size
+        #print(f'G0: {col}, {row}')
+        diff = frameControls[idx].winfo_height() - frameControls[0].winfo_height()
+    
+        btnSpacer = Button(\
+            frameControls[idx],
+            text = "", 
+            height = diff,
+            bg= colorScheme['1'],
+            fg= colorScheme['1'],
+            highlightcolor = colorScheme['1'],
+            activebackground = colorScheme['1'],
+            activeforeground = colorScheme['1'],
+            relief='flat'            
+        )
+        #lbSpacer.resizable(width=False, height=False)
+        btnSpacer.grid()
+    
+    
 def btnTxtUpdates():
     """Method meant to update button text under the action frame,
        especially based on the checkboxes in the 'Options that prevent
@@ -2552,99 +2674,423 @@ def logConfigBox():
         logConfigWindow.title('Log Settings')
         logConfigWindow.resizable(height = False, width = False)
         
-        frameConfig = LabelFrame(logConfigWindow, padx = 100, pady = 10, text = "Logging Options")
+        frameConfig = LabelFrame(logConfigWindow, padx = 100, pady = 10, text = "Logging Options", bg = colorScheme['1'], fg = colorScheme['2'])
         frameConfig.grid(row = 0 , column = 0, sticky = W)   
         
-        chkbxLogTimeStamp = Checkbutton(frameConfig,text='Timestamp', variable = logConfig['timestamp'])
+        chkbxLogTimeStamp = Checkbutton(frameConfig,text='Timestamp', variable = logConfig['timestamp'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxLogTimeStamp.grid(row = pos(0,rowPos) , column = 0, sticky = W)
         chkbxLogTimeStamp.config(bd=2)
         
-        chkbxLogWrap = Checkbutton(frameConfig,text='Wrap Lines', variable = logConfig['wrap'])
+        chkbxLogWrap = Checkbutton(frameConfig,text='Wrap Lines', variable = logConfig['wrap'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxLogWrap.grid(row = pos(1,rowPos) , column = 0, sticky = W)
         chkbxLogWrap.config(bd=2)
         
-        chkbxLogInactive = Checkbutton(frameConfig,text='Display Inactive Users', variable = logConfig['inactive'])
+        chkbxLogInactive = Checkbutton(frameConfig,text='Display Inactive Users', variable = logConfig['inactive'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxLogInactive.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogInactive.config(bd=2)
         
-        chkbxLogNoGroup = Checkbutton(frameConfig,text='Display Users In No Group', variable = logConfig['noGroup'])
+        chkbxLogNoGroup = Checkbutton(frameConfig,text='Display Users In No Group', variable = logConfig['noGroup'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxLogNoGroup.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogNoGroup.config(bd=2)
         
-        chkbxLogSave = Checkbutton(frameConfig,text=f'Save Logs', variable = logConfig['save'])
+        chkbxLogSave = Checkbutton(frameConfig,text=f'Save Logs', variable = logConfig['save'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxLogSave.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogSave.config(bd=2)
         
-        chkbxDebug = Checkbutton(frameConfig,text='Debug Mode', variable = logConfig['debug'])
+        chkbxDebug = Checkbutton(frameConfig,text='Debug Mode', variable = logConfig['debug'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxDebug.config(bd=2)
 
-        chkbxTest = Checkbutton(frameConfig,text='Testing Mode', variable = logConfig['test'])
+        chkbxTest = Checkbutton(frameConfig,text='Testing Mode', variable = logConfig['test'], bg = colorScheme['1'], fg = colorScheme['2'])
         chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxTest.config(bd=2)
 
 rowPos = 0
 colPos = 0
-colPosMax = 6
+colPosMax = 12
 
 # Build Primary Window
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
+root.configure(bg=colorScheme["1"])
 root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.10')
+#root.geometry("90x10")
 root.resizable(height = False, width = False)
 
-
-try:
-    background_image=PhotoImage('.\image\ZeusT-BG.png')
-    background_label = Label(root, image=background_image)
-    background_label.photo=background
-    background_label.place(x=0, y=0, relwidth=1015, relheight=650)
-except Exception as e:
-    print(f'Image Error: {e}')
+#try:
+#    gui = Canvas(root, bg="blue", height=650, width=1015)
+#    filename = PhotoImage(file = ".\ZeusT-BG.png")
+#    background_label = Label(gui, image=filename)
+#    background_label.place(x=0, y=0, relwidth=1, relheight=1)
+#except Exception as e:
+#    PrintException()
+#    print(f'Error {e}')
+#try:
+#    background_image=PhotoImage('.\ZeusT-BG.png')
+#    background_label = Label(root, image=background_image)
+#    background_label.photo=background_image
+#    background_label.place(x=0, y=0, relwidth=1015, relheight=650)
+#except Exception as e:
+#    print(f'Image Error: {e}')
 
 #Display Title within application
 
 iconFolder = PhotoImage(master=root, file='folder.png')
 
-#style = ttk.Style() 
-#style.configure('TButton', font =
-#               ('calibri', 10, 'bold', 'underline'), 
-#                foreground = 'red')
-#style.map('TButton', foreground = [('active', '! disabled', 'green')], 
-#                     background = [('active', 'black')]) 
+style = ttk.Style() 
+style.configure(\
+                'W.TButton',
+                font = ('verdana', 10, 'bold',), 
+                foreground = colors['light-brown'],
+                background = colors['blue'],
+                space = colors['brown']
+                )
+
+#style.map('W.TButton', foreground = [('active', 'disabled', 'green')], background = [('active', 'black')]) 
+
+paneApp = PanedWindow(\
+    root,
+    bg= colorScheme['1'],
+    orient= VERTICAL,
+    showhandle = True,
+    opaqueresize = True,
+    handlesize = 4,
+    handlepad = 4,
+    sashpad = 4,
+    #cursor = "hand2",
+    #sashcursor = sb_v_double_arrow,
+    sashrelief = 'flat',
+    relief='flat'   
+    )
+
+frameApp = LabelFrame(\
+    paneApp,
+    bg= colorScheme['1'],
+    text = '',
+    relief='flat' 
+    )
+
+paneApp.add(frameApp)
 
 
-frameApp = LabelFrame(root, text = "ZEUS by Maneesh Kumar")
-frameStep1 = LabelFrame(frameApp, padx=5, pady = 5, text = "Required Info")
-frameProcess = LabelFrame(frameApp, padx=5, pady = 5, text = "Restart Processing")
-frameButtons = LabelFrame(frameApp,text = "Actions")
-frameStep2 = LabelFrame(frameApp, padx = 5, pady =5, text="Options that prevent user updates")
-frameUser = LabelFrame(frameApp, text = "User Configuration")
-frameLog = LabelFrame(frameApp)
-frameAPI = LabelFrame(frameApp, text = "Custom API Commands")
 
-frameApp.grid()   
-frameStep1.grid(\
-        row = pos(0,rowPos), columnspan = int(colPosMax/3), sticky = N)
-frameProcess.grid(\
-        row = pos(1,rowPos), columnspan = int(colPosMax/3), sticky = NSEW)
 
-frameButtons.grid(\
-        row = pos(1,rowPos), column= colPos + 0, columnspan = colPosMax, sticky = NSEW)
+frameMenu = LabelFrame(\
+    root,
+    bg= colorScheme['2'],
+    fg= colorScheme['1'],
+    highlightcolor = colorScheme['3'],
+    relief='flat',
+    labelanchor = N,
+    font= ('verdana', 10, 'bold'),
+    text = "OPTIONS" 
+    )
+
+
+frameControls = []
+
+for i in range(0,4):
+    frameControls.append(\
+        LabelFrame(\
+            frameApp,
+            bg= colorScheme['1'],
+            fg= colorScheme['2'],
+            highlightcolor = colorScheme['3'],
+            relief='flat',
+            labelanchor = N+W,
+            font= ('verdana', 10, 'bold'),
+            text = "CONTROLS"
+        )
+    )
+    
+print(f'Length of frameControls: {len(frameControls)}')
+frameLog = LabelFrame(\
+    paneApp,
+    bg= colorScheme['3'],
+    fg= colorScheme['1'],
+    highlightcolor = colorScheme['3'],
+    relief='flat',
+    labelanchor = N+W,
+    font= ('verdana', 10, 'bold'),    
+    text = "LOG"
+    )
+
+paneApp.add(frameLog)
+
+colPosMax = 16
+
+frameStatus = LabelFrame(\
+    root,
+    bd = 4,
+    bg= colorScheme['3'],
+    fg= colorScheme['1'],
+    highlightcolor = colorScheme['3'],
+    relief='flat',
+    labelanchor = N+E,
+    font= ('verdana', 10, 'bold'), 
+    text = ""
+    )
+
+
+#rows = 0
+#while rows < 20:
+#    paneApp.rowconfigure(rows, weight=1)
+#    paneApp.columnconfigure(rows,weight=1)
+#    rows += 1
+frameApp.grid(
+        row = pos(0,rowPos),
+        column = posC(0,colPos),
+        columnspan = colPosMax,
+        sticky = NSEW
+    )
+
+paneApp.grid(column = 3, sticky = NSEW)   
+
+
+
+
 frameLog.grid(\
-        row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+        row = pos(1,rowPos),
+        column = posC(0,colPos),
+        columnspan = colPosMax,
+        sticky = NSEW    
+    )
+
+frameStatus.grid(\
+        row = 1,
+        column = posC(0,colPos),
+        columnspan = colPosMax + 2,
+        sticky = NSEW
+        )
 
 
-frameAPI.grid(\
-        row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
 
-frameUser.grid(\
-        row = pos(1,rowPos), column = colPos + 0, columnspan = colPosMax, sticky = NSEW)
+frameMenu.grid(\
+        row = pos(0,rowPos),
+        rowspan = 11,
+        column = posC(0,colPos),
+        columnspan = 2,
+        sticky = N+S+W
+    )
+
+for fControl in frameControls:
+    colPos = 3
+    fControl.grid(\
+            row = rowPos,
+            rowspan = 10,
+            column = colPos,
+            columnspan = 12,
+            sticky = E
+        )
 
 
 
+
+
+
+frameStep1 = LabelFrame(\
+    frameControls[0],
+    padx=5,
+    pady = 5,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    bd = 3,
+    relief='raised',
+    text = "Required Info"
+    )
+frameStep2 = LabelFrame(\
+    frameControls[0],
+    padx = 5,
+    pady =5,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    bd = 3,
+    relief='raised',
+    text="Options that prevent user updates"
+    )
+
+frameProcess = LabelFrame(\
+    frameControls[1],
+    padx=0,
+    pady = 0,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],    
+    text = "Restart Processing"
+    )
+
+frameButtons = LabelFrame(\
+    frameControls[1],
+    padx=0,
+    pady = 0,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    bd = 0,
+    text = "Actions")
+
+frameUser = LabelFrame(\
+    frameControls[2],
+    padx=5,
+    pady = 5,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    bd = 0,
+    text = "User Configuration"
+    )
+frameAPI = LabelFrame(\
+    frameControls[3],
+    padx=5,
+    pady = 5,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    bd = 0,
+    text = "Custom API Commands"
+    )
+
+   
+frameStep1.grid(\
+        row = pos(0,rowPos), column = posC(0,colPos), columnspan = 3, sticky = W)
 frameStep2.grid(\
-        row = pos(0,rowPos), column = colPos + 2, rowspan = 2, columnspan = int(colPosMax/3), sticky = NSEW)
+        row = pos(0,rowPos), column = posC(1,3), rowspan = 2, columnspan = 4, sticky = E)
+
+
+
+lblStatusAPI = Label(\
+    frameStatus,
+    bg = colorScheme['4'],
+    fg = colorScheme['2'],
+    text = "Zoom Web API Controls"
+    #text="Not communicating with Zoom API"
+    )
+lblStatusAPI.grid(\
+    row = pos(0,rowPos),
+    column = posC(0,colPos),
+    columnspan = 20
+)
+
+
+btnMenu = []
+
+btn = Button(\
+    frameMenu,
+    bg= colorScheme['2'],
+    fg= colorScheme['4'],
+    highlightcolor = colorScheme['3'],
+    activebackground = colorScheme['1'],
+    activeforeground = colorScheme['3'],
+    relief='flat',
+    text='Settings',
+    width=20,
+    command = lambda: menuButtons(0)
+    )
+
+
+btnMenu.append(btn)
+
+btn = Button(\
+    frameMenu,
+    bg= colorScheme['2'],
+    fg= colorScheme['4'],
+    highlightcolor = colorScheme['3'],
+    activebackground = colorScheme['1'],
+    activeforeground = colorScheme['3'],
+    relief='flat',
+    text="Account Actions",
+    width=20,
+    command= lambda: menuButtons(1)
+    )
+
+btnMenu.append(btn)
+
+btn = Button(\
+    frameMenu,
+    bg= colorScheme['2'],
+    fg= colorScheme['4'],
+    highlightcolor = colorScheme['3'],
+    activebackground = colorScheme['1'],
+    activeforeground = colorScheme['3'],
+    relief='flat',
+    text="User Actions",
+    width=20,
+    command= lambda: menuButtons(2)
+    )
+
+btnMenu.append(btn)
+
+btn = Button(\
+    frameMenu,
+    bg= colorScheme['2'],
+    fg= colorScheme['4'],
+    highlightcolor = colorScheme['3'],
+    activebackground = colorScheme['1'],
+    activeforeground = colorScheme['3'],
+    relief='flat',
+    text="Custom API",
+    width=20,
+    command= lambda: menuButtons(3)
+    )
+
+btnMenu.append(btn)
+
+for btnItem in btnMenu:
+    btnItem.grid(\
+        row = pos(2,rowPos),
+        rowspan = 2,
+        column = posC(0,colPos),
+        columnspan = 2,
+        sticky = NSEW
+    )
+
+
+logData = StringVar(frameLog)
+logData.set("Program Started")
+
+listbox = Listbox(\
+    frameLog,
+    setgrid = 1,
+    width = 90,
+    name='log'
+    )
+
+listbox.bind('<<ListboxSelect>>',onListSelect )
+listbox.grid(\
+    row = pos(0,rowPos),
+    column = posC(0,colPos),
+    columnspan = colPosMax,
+    sticky = NSEW
+    ) 
+scrollbar = Scrollbar(frameLog) 
+scrollbar.grid(row = rowPos , column = colPosMax+4, rowspan=1,  sticky=N+S+W) 
+listbox.config(yscrollcommand = scrollbar.set)  
+scrollbar.config(command = listbox.yview)
+
+btnCancel = Button(frameLog, text="Cancel Action", width=15, command=cancelActionsBtn, state=DISABLED)
+
+btnCancel.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
+
+btnClearLog = Button(frameLog, text="Clear log", width=15, command=clearLog)
+btnClearLog.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+logConfig = {}
+logConfig['timestamp'] = IntVar(value = 1)
+logConfig['wrap'] = IntVar(value = 1)
+logConfig['inactive'] = IntVar(value = 1)
+logConfig['noGroup'] = IntVar(value = 1)
+logConfig['save'] = IntVar(value = 1)
+logConfig['debug'] = IntVar()
+logConfig['test'] = IntVar()
+
+
+
+btnLogConfig = Button(frameLog,text='Log Config', command=logConfigBox)
+btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+
+progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
+progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
+progress.grid(row = rowPos, column = posC(1,colPos), sticky = E)
+
+
+
 
 
 btnOpenCreds = Button(\
@@ -2652,25 +3098,26 @@ btnOpenCreds = Button(\
     text="Open Credentials File",
     image=iconFolder,
     compound = LEFT,
-    width=20,
+    width=100,
     command=openCredentials
     )
 
 
-btnOpenCreds.grid(row = pos(1,rowPos), columnspan = 2, column = 0, sticky = NSEW )
+btnOpenCreds.grid(\
+    row = pos(0,rowPos), columnspan = 4, column = posC(0,colPos), sticky = NSEW )
 
 
-eLbl1 = Label(frameStep1, text="API Key")
+eLbl1 = Label(frameStep1, text="API Key", bg = colorScheme['1'], fg = colorScheme['2'])
 eAPIKey = Entry(frameStep1)
-eLbl2 = Label(frameStep1, text="API Secret")
+eLbl2 = Label(frameStep1, text="API Secret", bg = colorScheme['1'], fg = colorScheme['2'])
 eAPISecret = Entry(frameStep1, show='*')
-eLbl3 =  Label(frameStep1, text="Email Domain")
+eLbl3 =  Label(frameStep1, text="Email Domain", bg = colorScheme['1'], fg = colorScheme['2'])
 eDomain = Entry(frameStep1)
-eLbl4 = Label(frameStep1, text="LDAP Host")
+eLbl4 = Label(frameStep1, text="LDAP Host", bg = colorScheme['1'], fg = colorScheme['2'])
 eLDAPHost = Entry(frameStep1)
-eLbl5 = Label(frameStep1, text="LDAP Login")
+eLbl5 = Label(frameStep1, text="LDAP Login", bg = colorScheme['1'], fg = colorScheme['2'])
 eLDAPUser = Entry(frameStep1)
-eLbl6 = Label(frameStep1, text="LDAP Password")
+eLbl6 = Label(frameStep1, text="LDAP Password", bg = colorScheme['1'], fg = colorScheme['2'])
 eLDAPPass = Entry(frameStep1, show='*')
 
 
@@ -2700,7 +3147,7 @@ eLDAPPass.grid(row = rowPos, column = colPos + 1)
 
 eAPIKey.focus_set()
 
-elblProcEmail =  Label(frameProcess, text="Email")
+elblProcEmail =  Label(frameProcess, text="Email", bg = colorScheme['1'], fg = colorScheme['2'])
 etxtProcEmail = Entry(frameProcess)
 elblProcEmail.grid(row = pos(1,rowPos), column = colPos, sticky = E)
 etxtProcEmail.grid(row = rowPos, column = colPos + 1)
@@ -2718,7 +3165,7 @@ btnSettingsStats = Button(frameButtons, textvariable = btnSettingsText, width=60
 btnRoles = Button(frameButtons, text="List Zoom user roles", width=60, command=get_acct_roles)
 
 
-btn.grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
+btn.grid(column = posC(0,colPos), row = pos(1,rowPos), sticky = NSEW)
 btnOpen.grid(column = colPos+1, row = rowPos, sticky = NSEW)
 btnOpenDelete.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
 btnDeleteInactive.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
@@ -2731,7 +3178,7 @@ btnRoles.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSE
 #btnSAMLReorg.pack()
 #btnOpen = Button(root, text="Save Log", width=30, command=logSave)
 #btnOpen.pack()
-elblFilter = Label(frameStep2, text= "Limit to   ")
+elblFilter = Label(frameStep2, text= "Limit to   ", bg = colorScheme['1'], fg = colorScheme['2'])
 elblFilter.grid(row=rowPos, column = colPos + 2, sticky = W)
 
 filterGroup = StringVar()
@@ -2742,28 +3189,28 @@ emenuGroupFilter.grid(row=rowPos, column = colPos + 2, sticky = E)
 
 
 chkBasic = IntVar(value=1)
-chkbxBasic = Checkbutton(frameStep2,text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates)
+chkbxBasic = Checkbutton(frameStep2,text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxBasic.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxBasic.config(bd=2)
 
 
 chkMeetings = IntVar()
-chkbxMeetings = Checkbutton(frameStep2,text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates)
+chkbxMeetings = Checkbutton(frameStep2,text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxMeetings.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxMeetings.config(bd=2)
 
 
 chkRec = IntVar()
-chkbxRecordings = Checkbutton(frameStep2,text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates)
+chkbxRecordings = Checkbutton(frameStep2,text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxRecordings.grid(row = pos(1,rowPos), column = colPos + 2, sticky = W)
 chkbxRecordings.config(bd=2)
 
 chkActivity = IntVar()
-chkbxActivity = Checkbutton(frameStep2,text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates)
+chkbxActivity = Checkbutton(frameStep2,text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxActivity.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxActivity.config(bd=2)
 
-eLbl8 = Label(frameStep2, text="No. of months to check for recordings")
+eLbl8 = Label(frameStep2, text="No. of months to check for recordings", bg = colorScheme['1'], fg = colorScheme['2'])
 eLbl8.grid(row = pos(1,rowPos), column = colPos + 2)
 eRecMonths = Entry(frameStep2)
 eRecMonths.grid(row = pos(1,rowPos), column = colPos + 2)
@@ -2772,7 +3219,7 @@ eRecMonths.insert(0, "6")
 
 
 
-eLblMonthsActive = Label(frameStep2, text="Months to be considered still active")
+eLblMonthsActive = Label(frameStep2, text="Months to be considered still active", bg = colorScheme['1'], fg = colorScheme['2'])
 eLblMonthsActive.grid(row = pos(1,rowPos), column = colPos + 2)
 eActiveUser = Entry(frameStep2)
 eActiveUser.grid(row = pos(1,rowPos), column = colPos + 2)
@@ -2785,10 +3232,10 @@ eActiveUser.insert(0, "0")
 #eMonths.pack()
 
 
-eLblInactive = Label(frameStep2, text="Date of last login for an inactive user")
+eLblInactive = Label(frameStep2, text="Date of last login for an inactive user", bg = colorScheme['1'], fg = colorScheme['2'])
 eLblInactive.grid(row = pos(1,rowPos), column = colPos + 2)
 
-elblDate = Label(frameStep2, text= "mm/dd/yyyy  ")
+elblDate = Label(frameStep2, text= "mm/dd/yyyy  ", bg = colorScheme['1'], fg = colorScheme['2'])
 elblDate.grid(row=pos(1,rowPos), column = colPos + 2, sticky = W)
 
 eDate = Entry(frameStep2)
@@ -2799,11 +3246,11 @@ eDate.insert(0, "01/01/2019")
 
 
 
-frameUserFields = LabelFrame(frameUser)
+frameUserFields = LabelFrame(frameUser, bg = colorScheme['1'], fg = colorScheme['2'],bd = 0)
 frameUserFields.grid(column = 0, row = pos(1,rowPos), columnspan = int(colPosMax), sticky=NSEW)
 tempRow = pos(1,rowPos)
 
-eLblUserEmail = Label(frameUserFields, text="User Email")
+eLblUserEmail = Label(frameUserFields, text="User Email", bg = colorScheme['1'], fg = colorScheme['2'])
 eEmail = Entry(frameUserFields,width=30)
 btnLogOps = Button(frameUserFields, text="Op Log", width=10, command=getOpsLog)
 btnLogSignin = Button(frameUserFields, text="Signing Log", width=10, command=getSigningLog)
@@ -2824,7 +3271,7 @@ etxtUpdateEmail.grid(row = rowPos, column = 1,sticky = NSEW)
 btnUpdateEmail.grid(row = rowPos, column =2, sticky = E)
 
 
-frameUserBtn = LabelFrame(frameUser)
+frameUserBtn = LabelFrame(frameUser, bg = colorScheme['1'], fg = colorScheme['2'],bd = 0,)
 rowPos = tempRow
 frameUserBtn.grid(column = 0, row = pos(1,rowPos), columnspan = int(colPosMax/3))
 
@@ -2854,45 +3301,8 @@ btnUpdateLargeMtg.grid(row = rowPos, column = colPos + 7)
 btnUpdateDelete = Button(frameUserBtn, text="Delete", width=8, command=UpdateUser_Delete, state=DISABLED)
 btnUpdateDelete.grid(row = rowPos, column = colPos + 8)
 
-btnCancel = Button(frameLog, text="Cancel Action", width=15, command=cancelActionsBtn, state=DISABLED)
-btnCancel.grid(row = 1, column = 1, sticky = W)
-
-btnClearLog = Button(frameLog, text="Clear log", width=15, command=clearLog)
-btnClearLog.grid(row = 1, column = 1, sticky = S )
-
-progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
-progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
-progress.grid(row = 1, column = 1, sticky = E)
-    
-
-logData = StringVar(frameLog)
-logData.set("Program Started")
-
-listbox = Listbox(frameLog, setgrid = 1, width = 60, name='log')
-listbox.bind('<<ListboxSelect>>',onListSelect )
-# Adding Listbox to the left 
-# side of root window 
-listbox.grid(row = 2, column = 1) 
-
-scrollbar = Scrollbar(frameLog) 
-scrollbar.grid(row = 2 , column = 2, rowspan=2,  sticky=N+S+W) 
-listbox.config(yscrollcommand = scrollbar.set)  
-scrollbar.config(command = listbox.yview)
 
 
-logConfig = {}
-logConfig['timestamp'] = IntVar(value = 1)
-logConfig['wrap'] = IntVar(value = 1)
-logConfig['inactive'] = IntVar(value = 1)
-logConfig['noGroup'] = IntVar(value = 1)
-logConfig['save'] = IntVar(value = 1)
-logConfig['debug'] = IntVar()
-logConfig['test'] = IntVar()
-
-
-
-btnLogConfig = Button(frameLog,text='Log Config', command=logConfigBox)
-btnLogConfig.grid(column = 1, row = 3, sticky = E)
 
 
 
@@ -2911,7 +3321,7 @@ rowPos = 0
 colPos = 0
 for text, mode in RADIOMODES:
     apiRadioBtn = Radiobutton(frameAPI, text=text,
-                    variable=RESTmethod, value=mode)
+                    variable=RESTmethod, value=mode, bg = colorScheme['1'], fg = colorScheme['2'])
     apiRadioBtn.grid(row = rowPos, column = colPos)
     colPos += 1
 
@@ -2940,11 +3350,11 @@ if apiCategoryList != None:
     apiCommand = StringVar(root)
     apiCommand.set(apiCommandList[0]) # set the default option
 
-    eLblAPICat = Label(frameAPI, text="API Category")
+    eLblAPICat = Label(frameAPI, text="API Category", bg = colorScheme['1'], fg = colorScheme['2'])
     emenuAPICat = ttk.Combobox(frameAPI, textvariable=apiCategories, values=apiCategoryList)
     resizeFuncAPICat()
     
-    eLblAPICmd = Label(frameAPI, text="API Command")
+    eLblAPICmd = Label(frameAPI, text="API Command", bg = colorScheme['1'], fg = colorScheme['2'])
     emenuAPICmd = ttk.Combobox(frameAPI, textvariable=apiCommand,postcommand=resizeFuncAPICmd, values=apiCommandList)
     #etxtAPI.delete(0, END)
     #etxtAPI.insert(0, "/report/operationlogs")
@@ -2959,18 +3369,18 @@ if apiCategoryList != None:
     emenuAPICmd.grid(row = rowPos, column = 2, columnspan=4, sticky = W)   
 
 
-elblAPIParam = Label(frameAPI, text="Parameters (JSON)")
+elblAPIParam = Label(frameAPI, text="Parameters (JSON)", bg = colorScheme['1'], fg = colorScheme['2'])
 etxtAPIParam = Entry(frameAPI)
 etxtAPIParam.delete(0, END)
 #etxtAPIParam.insert(0, '{"page_size":300}')
 
-elblAPIBody = Label(frameAPI, text="Body (JSON)")
+elblAPIBody = Label(frameAPI, text="Body (JSON)", bg = colorScheme['1'], fg = colorScheme['2'])
 etxtAPIBody = Entry(frameAPI)
 
 
 elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api", fg="blue", cursor="hand2")
 elblAPIURL.bind("<Button-1>", lambda e: urlOpen("https://marketplace.zoom.us/docs/api-reference/zoom-api"))
-elblAPI = Label(frameAPI, text="Commmand (URL End)")
+elblAPI = Label(frameAPI, text="Commmand (URL End)", bg = colorScheme['1'], fg = colorScheme['2'])
 etxtAPI = Entry(frameAPI)
     
 elblAPI.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
@@ -2993,14 +3403,14 @@ btnAPIUpdate.grid(row = 0, rowspan=4, column = 6, sticky = E)
 #windowWidth = root.winfo_width()
 
 #if screenHeight > windowHeight:
-#    scrollbarApp = Scrollbar(frameApp) 
+#    scrollbarApp = Scrollbar(paneApp) 
 #    scrollbarApp.grid(row = 0 , column = 7, rowspan=5,  sticky=N+S+W) 
-#    frameApp.config(yscrollcommand = scrollbarApp.set)  
-#    scrollbar.config(command = frameApp.yview)
+#    paneApp.config(yscrollcommand = scrollbarApp.set)  
+#    scrollbar.config(command = paneApp.yview)
 
 
 btnTxtUpdates()
-
+menuButtons(0)
 
 
 
