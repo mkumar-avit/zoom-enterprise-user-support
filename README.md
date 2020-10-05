@@ -44,25 +44,36 @@ The program will generate multiple files, based on your choice of actions in the
  -Zoom Retrieved User List.csv - backup of retrieve user data from Zoom, can be used as a basis to generate an update list that can be imported into the Zoom webportal
  
 ## Button Functionality
-
-### Required Info
-#### Open Credentials file
+###Settings
+#### Required Info
+##### Open Credentials file
 (optional) Open a CSV file that contains the API Key, API Secret, Domain, LDAP Host LDAP Login, and LDAP Password.  This is not a recommended method since this is pulling data from a cleartext source.   May investigate alternatives in the future like LastPass integration.
-#### API Key
+##### API Key
 API Key pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
 
-#### API Secret
+##### API Secret
 API Secret pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
 
-#### Email Domain
+##### Email Domain
 (optional) Enter your organization's domain, and and entries that are clicked in the log window that contain the domain will automatically populate the User Email field
 
-#### LDAP Host
+#### LDAP Configuration
+##### LDAP Host
 Currently not used
 #### LDAP Login
 Currently not used
 #### LDAP Password
 Currently not used
+
+#### Logging Options
+####Account Actions
+####Actions
+#####Retrieve all user data
+#####Open all user data
+#####Modify/Delete Users via CSV email list file
+#####Modify/Delete inactive users to Basic
+#####Backup user settings
+#####List Zoom user roles
 
 ### Options that prevent user updates
 #### Change user to Basic (No Deletes)
