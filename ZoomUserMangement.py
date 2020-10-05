@@ -172,7 +172,7 @@ def logging(text ,save=True):
     global fileLog
     today = datetime.datetime.now()
 
-    lineLen = 69    
+    lineLenMax = 89   
 
     
     try:
@@ -187,13 +187,13 @@ def logging(text ,save=True):
             todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
         text = f'{todayStr}{text}'
      
-        if len(text) >= lineLen and logConfig['wrap'].get() == 1:
+        if len(text) >= lineLenMax and logConfig['wrap'].get() == 1:
             if '{' in text:
                 text.replace('{', '{\n')  
             if '}' in text:
                 text.replace('}', '}\n')
             
-            textChunk = [text[i:i+lineLen] for i in range(0, len(text), lineLen)]
+            textChunk = [text[i:i+lineLenMax] for i in range(0, len(text), lineLenMax)]
             #print(f' Dated Text {len(textChunk)}:{textChunk}')
             for i in range(len(textChunk) - 1, -1, -1):
                 #logData.set(textChunk[i])
@@ -444,7 +444,21 @@ def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames
     except Exception as e:
         logging(f'Error in reading file: {e}')
 
+    cancelActions('reset')
     return csvData
+
+
+def actionBtnsState(state):
+    if state == 'enabled':
+        btnDeleteInactive["state"] = "normal"
+        btnOpenDelete["state"] = "normal"
+        btnSettingsStats["state"] = "normal"
+    else:
+        btnDeleteInactive["state"] = "disabled"
+        btnOpenDelete["state"] = "disabled"
+        btnSettingsStats["state"] = "disabled"        
+
+
 
 def csvOpen():
     global userDB
@@ -460,7 +474,7 @@ def csvOpen():
         PrintException()
         fileName = USER_DB_FILE
     
-    
+ 
     cancelActions(False)
     
     try:
@@ -479,22 +493,21 @@ def csvOpen():
                 #fieldnames = ['flag','userID','email','first_name', 'last_name','last_login','months_since','app_ver','group','license']
             
             logging(f'Number of Entries opened: {len(userDB)}')
-            
+            actionBtnsState('enabled')
+   
     except Exception as e:
         logging(f'Error in reading file: {e}')
     
-
-    
-    btnDeleteInactive["state"] = "normal"
-    btnOpenDelete["state"] = "normal"
-    btnSettingsStats["state"] = "normal"
-    
+    cancelActions('reset')
 
 def csvOpenDelete():
     cpUser = []
     rowCount = 0
     progress_var.set(0)
     listboxTop()
+    
+    cancelActions(False)
+    
     try:
         root.filename = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
         logging (f"Open File: {root.filename}")
@@ -511,6 +524,9 @@ def csvOpenDelete():
             cpUser.clear()
             #print(f"{readCSV}")
             for row in readCSV:
+                if cancelAction == True:
+                    cancelAction = False
+                    break
                 rowCount += 1
                 try:
                     cpUser.append(row[0])
@@ -527,7 +543,8 @@ def csvOpenDelete():
             logging('Err xref user')
     except Exception as e:
         logging(f'Error in reading Email file: {e}')        
-
+    
+    cancelActions('reset')
 
 def send_REST_request(apiType, data="", body= None, param = None, rType = "get", note=""):
     '''
@@ -1599,6 +1616,8 @@ def get_users_settings():
                 
     except Exception as e:
         logging (f'Error with creating file: {e}')
+    
+    cancelActions('reset')
 
 def save_acct_settings(settingsDB):
     
@@ -1850,7 +1869,7 @@ def get_user_data(groupsDict):
                     
                     try:         
                         user_data = send_REST_request('users', param = JSONData, rType = "get")
-                        
+                    
                         #user_data = requests.get(url=url, headers=authHeader).json()
                         #userInactive = [userID,userLoginMonths, userFirstName, userLastName]
                         
@@ -2029,6 +2048,7 @@ def get_user_data(groupsDict):
                             try:
                                 user_ids = [flagUser[0],userEmail, userID, userFirstName, userLastName,userLastLogin,userLastClientVer,userGroup,userLicense, userLoginMonths]
                                 userDB.append(user_ids)
+                                actionBtnsState('enabled')
                             except:
                                 user_ids = []
                                 
@@ -2061,19 +2081,23 @@ def get_user_data(groupsDict):
                     #print("Time Remaining: {:.2f}s, {}/{} : {}".format(runAvg,page,total_pages,user_ids))
                 # print the contents using zip format.
 
-                    
+          
+                for userLicense in licenseCnt['total']:
+                    logging(f'Total {userLicense} Users Counted: {licenseCnt["total"][userLicense]}')
+                
                 logging('Total Flagged Users: {}'.format(flagUserCount))
                 
                 logging('User Data Pulled:  {}'.format(len(userDB)))
                 logging('Users Inactive: {}'.format(len(userInactiveDB)))
-                btnDeleteInactive["state"] = "normal"
-                btnOpenDelete["state"] = "normal"
-                btnSettingsStats["state"] = "normal"
+ 
+
                 
         except Exception as e:
             logging ('File Write Error, please close file it may be open in Excel\n{}'.format(e))
             data = None
-        
+    
+    
+    cancelActions('reset')
     return data
 
 def get_subaccount_data():
@@ -2163,7 +2187,9 @@ def Relicense_Inactive():
         counter += 1
         progress_var.set(int((counter/usersCnt)*100))
     logging (f'{userCounter} users modified.')
-    
+
+    cancelActions('reset')
+
 def onListSelect(event):
     global eDomain
     global eEMail
@@ -2345,7 +2371,7 @@ def callback():
     endTime = time.time()
     timeTotal = endTime - startTime
     #btn.set(f"Retrieve all users: {((timeTotal*(len(userDB)))/60):.3f}mins")          
-
+    cancelActions('reset')
 
 def zoom_token_auth():
     global maxMonths
@@ -2439,27 +2465,25 @@ def cancelActions(state):
     
     #if state == cancelAction:
     #    cancelAction = not cancelAction
-        
-    if state is True:
-        logging("Cancelling last request...")
-        cancelAction = True
-        btnCancel["state"] = "disabled"
-    else:
-        cancelAction = False
-        btnCancel["state"] = "normal"
-
-def cancelActionsBtn():
-    """Event trigger method for Cancel Actions button.  Manages
-       exiting of any scanning loops that were defined with this
-       action and a break command
-       
-    Args:  None
     
-    Returns:  None
-    """      
-    listboxTop()
-    cancelActions(True)
+    try:
+        if state.lower() == 'reset':
+            cancelAction = True
+            btnCancel["state"] = "disabled"
+    except:
+        None
 
+    try:
+        if state is True: 
+            listboxTop()
+            logging("Cancelling last request...")
+            cancelAction = True
+            btnCancel["state"] = "disabled"
+        elif state is False:
+            cancelAction = False
+            btnCancel["state"] = "normal"
+    except:
+        None
 
 def posC(inc, val = None):
     """Increments or resets column position for Tkinter
@@ -2534,32 +2558,33 @@ def menuButtons(idx):
     
     if idx is 0:
         frameControls[0]['text'] = 'SETTINGS'
-        frameStep1.grid(\
+        frameSettings[0].grid(\
             row = pos(0,rowPos),
             column = posC(0,colPos),
             columnspan = 3,
             sticky = N
         )
-        frameStep2.grid(\
-            row = pos(0,rowPos),
-            column = posC(1,3),
-            rowspan = 2, columnspan = 4,
+        frameSettings[1].grid(\
+            row = pos(1,rowPos),
+            column = posC(0,colPos),
             sticky = NSEW
         )
        
     elif idx is 1:
         frameControls[idx]['text'] = 'ACCOUNT-LEVEL MANAGEMENT'
-        frameProcess.grid(\
-            row = pos(1,rowPos),
-            columnspan = int(colPosMax/3),
-            sticky = NSEW)
 
-        frameButtons.grid(\
+        frameAccount[0].grid(\
             row = pos(1,rowPos),
             column= colPos + 0,
             columnspan = colPosMax,
             sticky = NSEW
         )
+        frameProcess.grid(\
+            row = pos(1,rowPos),
+            columnspan = int(colPosMax/3),
+            sticky = NSEW
+        )
+
     elif idx is 2:
         frameControls[idx]['text'] = 'USER-LEVEL MANAGEMENT'
         frameUser.grid(\
@@ -2576,7 +2601,23 @@ def menuButtons(idx):
             columnspan = 3,
             sticky = NSEW
         )
+    
+    
+     
+    (col,row) = frameAccount[0].grid_size()
+     
+    print(f'G0: {col}, {row}')
+    
     root.update()
+    frameAccount[1].grid(\
+        row = 0,
+        rowspan = row,
+        column= col + 15,
+        columnspan = 2,
+        sticky = NSEW
+    )
+    
+    
     print (f'Base Height: {frameControls[0].winfo_height()},  Frame Now: {frameControls[idx].winfo_height()}')
     if frameControls[0].winfo_height() > frameControls[idx].winfo_height():
         #(col,row) = frameControls[0].grid_size
@@ -2596,6 +2637,8 @@ def menuButtons(idx):
         )
         #lbSpacer.resizable(width=False, height=False)
         btnSpacer.grid()
+        
+        
     
     
 def btnTxtUpdates():
@@ -2649,7 +2692,66 @@ def btnTxtUpdates():
     
     #mainloop()
     #root.update_idletasks()
-def logConfigBox():
+        
+def logConfigFrame():
+    global frameSettings
+    rows = 0
+    try:
+        root.update()
+        for frm in frameSettings:
+            (frColumns, frRows) = frameSettings[frm].grid_size()
+            rows += frRows
+        print(f'Grid Size: {frColumns}, {frRows}')
+    except:
+        frColumns = 3
+        rows = 3
+       
+    frameSettings.append(\
+        LabelFrame(\
+            frameControls[0],
+            padx = 30,
+            pady = 10,
+            text = "Logging Options",
+            bg = colorScheme['1'],
+            fg = colorScheme['2']
+            )
+    )
+    
+    (f'{frameSettings}')
+    frIdx = len(frameSettings) - 1
+    
+        
+    frameSettings[frIdx].grid(row = 0, rowspan = rows, column = frColumns+1, sticky = W)   
+    
+    chkbxLogTimeStamp = Checkbutton(frameSettings[frIdx],text='Timestamp', variable = logConfig['timestamp'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogTimeStamp.grid(row = pos(0,rowPos) , column = 0, sticky = W)
+    chkbxLogTimeStamp.config(bd=2)
+    
+    chkbxLogWrap = Checkbutton(frameSettings[frIdx],text='Wrap Lines', variable = logConfig['wrap'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogWrap.grid(row = pos(1,rowPos) , column = 0, sticky = W)
+    chkbxLogWrap.config(bd=2)
+    
+    chkbxLogInactive = Checkbutton(frameSettings[frIdx],text='Display Inactive Users', variable = logConfig['inactive'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogInactive.grid(row = pos(1,rowPos), column = 0, sticky = W)
+    chkbxLogInactive.config(bd=2)
+    
+    chkbxLogNoGroup = Checkbutton(frameSettings[frIdx],text='Display Users In No Group', variable = logConfig['noGroup'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogNoGroup.grid(row = pos(1,rowPos), column = 0, sticky = W)
+    chkbxLogNoGroup.config(bd=2)
+    
+    chkbxLogSave = Checkbutton(frameSettings[frIdx],text=f'Save Logs', variable = logConfig['save'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogSave.grid(row = pos(1,rowPos), column = 0, sticky = W)
+    chkbxLogSave.config(bd=2)
+    
+    chkbxDebug = Checkbutton(frameSettings[frIdx],text='Debug Mode', variable = logConfig['debug'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
+    chkbxDebug.config(bd=2)
+
+    chkbxTest = Checkbutton(frameSettings[frIdx],text='Testing Mode', variable = logConfig['test'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
+    chkbxTest.config(bd=2)
+        
+def logConfigWindow():
     """Method meant to display secondary popup window that contains
        configuration settings for the log window
        
@@ -2884,30 +2986,32 @@ for fControl in frameControls:
         )
 
 
+frameAccount = []
+frameSettings = []
 
 
-
-
-frameStep1 = LabelFrame(\
+frameSettings.append(LabelFrame(\
     frameControls[0],
-    padx=5,
-    pady = 5,
+    #padx = 5,
+    #pady = 5,
     bg= colorScheme['1'],
     fg= colorScheme['2'],
-    bd = 3,
-    relief='raised',
-    text = "Required Info"
-    )
-frameStep2 = LabelFrame(\
+    #bd = 3,
+    #relief='raised',
+    text = "Zoom API Credentials"
+    ))
+
+frameSettings.append(LabelFrame(\
     frameControls[0],
-    padx = 5,
-    pady =5,
+    #padx = 5,
+    #pady = 5,
     bg= colorScheme['1'],
     fg= colorScheme['2'],
-    bd = 3,
-    relief='raised',
-    text="Options that prevent user updates"
-    )
+    #bd = 3,
+    #relief='raised',
+    text = "LDAP Credentials"
+    ))
+
 
 frameProcess = LabelFrame(\
     frameControls[1],
@@ -2918,14 +3022,24 @@ frameProcess = LabelFrame(\
     text = "Restart Processing"
     )
 
-frameButtons = LabelFrame(\
+frameAccount.append(LabelFrame(\
     frameControls[1],
     padx=0,
     pady = 0,
     bg= colorScheme['1'],
     fg= colorScheme['2'],
     bd = 0,
-    text = "Actions")
+    text = "Actions"
+    ))
+
+frameAccount.append(LabelFrame(\
+    frameControls[1],
+    padx = 10,
+    pady =5,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    text="Options that prevent user updates"
+    ))
 
 frameUser = LabelFrame(\
     frameControls[2],
@@ -2947,10 +3061,17 @@ frameAPI = LabelFrame(\
     )
 
    
-frameStep1.grid(\
+frameSettings[0].grid(\
         row = pos(0,rowPos), column = posC(0,colPos), columnspan = 3, sticky = W)
-frameStep2.grid(\
-        row = pos(0,rowPos), column = posC(1,3), rowspan = 2, columnspan = 4, sticky = E)
+
+root.update()
+(frColumns, frRows) = frameSettings[0].grid_size()
+
+frameSettings[1].grid(\
+        row = pos(1,frRows), column = posC(0,frColumns), columnspan = 3, sticky = W)
+
+#frameSettings[0].grid(\
+#        row = pos(0,rowPos), column = posC(1,3), rowspan = 2, columnspan = 4, sticky = E)
 
 
 
@@ -3063,12 +3184,20 @@ scrollbar.grid(row = rowPos , column = colPosMax+4, rowspan=1,  sticky=N+S+W)
 listbox.config(yscrollcommand = scrollbar.set)  
 scrollbar.config(command = listbox.yview)
 
-btnCancel = Button(frameLog, text="Cancel Action", width=15, command=cancelActionsBtn, state=DISABLED)
+btnCancel = Button(frameLog, text="Cancel Action", width=15, command= lambda: cancelActions(True), state=DISABLED)
 
 btnCancel.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 
 btnClearLog = Button(frameLog, text="Clear log", width=15, command=clearLog)
 btnClearLog.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+btnLogConfig = Button(frameLog,text='Log Config', command=logConfigWindow)
+btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
+progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
+progress.grid(row = rowPos, column = posC(1,colPos), sticky = E)
+
 
 logConfig = {}
 logConfig['timestamp'] = IntVar(value = 1)
@@ -3079,22 +3208,15 @@ logConfig['save'] = IntVar(value = 1)
 logConfig['debug'] = IntVar()
 logConfig['test'] = IntVar()
 
+logConfigFrame()
 
-
-btnLogConfig = Button(frameLog,text='Log Config', command=logConfigBox)
-btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
-
-
-progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
-progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
-progress.grid(row = rowPos, column = posC(1,colPos), sticky = E)
 
 
 
 
 
 btnOpenCreds = Button(\
-    frameStep1,
+    frameSettings[0],
     text="Open Credentials File",
     image=iconFolder,
     compound = LEFT,
@@ -3106,19 +3228,21 @@ btnOpenCreds = Button(\
 btnOpenCreds.grid(\
     row = pos(0,rowPos), columnspan = 4, column = posC(0,colPos), sticky = NSEW )
 
+##@@@@@@@
+eLbl1 = Label(frameSettings[0], text="API Key", bg = colorScheme['1'], fg = colorScheme['2'])
+eAPIKey = Entry(frameSettings[0])
+eLbl2 = Label(frameSettings[0], text="API Secret", bg = colorScheme['1'], fg = colorScheme['2'])
+eAPISecret = Entry(frameSettings[0], show='*')
+eLbl3 =  Label(frameSettings[0], text="Email Domain", bg = colorScheme['1'], fg = colorScheme['2'])
+eDomain = Entry(frameSettings[0])
 
-eLbl1 = Label(frameStep1, text="API Key", bg = colorScheme['1'], fg = colorScheme['2'])
-eAPIKey = Entry(frameStep1)
-eLbl2 = Label(frameStep1, text="API Secret", bg = colorScheme['1'], fg = colorScheme['2'])
-eAPISecret = Entry(frameStep1, show='*')
-eLbl3 =  Label(frameStep1, text="Email Domain", bg = colorScheme['1'], fg = colorScheme['2'])
-eDomain = Entry(frameStep1)
-eLbl4 = Label(frameStep1, text="LDAP Host", bg = colorScheme['1'], fg = colorScheme['2'])
-eLDAPHost = Entry(frameStep1)
-eLbl5 = Label(frameStep1, text="LDAP Login", bg = colorScheme['1'], fg = colorScheme['2'])
-eLDAPUser = Entry(frameStep1)
-eLbl6 = Label(frameStep1, text="LDAP Password", bg = colorScheme['1'], fg = colorScheme['2'])
-eLDAPPass = Entry(frameStep1, show='*')
+
+eLbl4 = Label(frameSettings[1], text="LDAP Host", bg = colorScheme['1'], fg = colorScheme['2'])
+eLDAPHost = Entry(frameSettings[1])
+eLbl5 = Label(frameSettings[1], text="LDAP Login", bg = colorScheme['1'], fg = colorScheme['2'])
+eLDAPUser = Entry(frameSettings[1])
+eLbl6 = Label(frameSettings[1], text="LDAP Password", bg = colorScheme['1'], fg = colorScheme['2'])
+eLDAPPass = Entry(frameSettings[1], show='*')
 
 
 eLbl1.grid(row = pos(1,rowPos), column= colPos, sticky = E)
@@ -3157,15 +3281,15 @@ btnOpenDeleteText = StringVar()
 btnDeleteInactiveText = StringVar()
 btnSettingsText = StringVar()
 
-btn = Button(frameButtons, text="Retrieve All User Data", width=30, command=callback)
-btnOpen = Button(frameButtons, text="Open All User Data", image=iconFolder, compound = LEFT, width=35, command=csvOpen)
-btnOpenDelete = Button(frameButtons, textvariable=btnOpenDeleteText,image=iconFolder, compound = LEFT, width=60, command=csvOpenDelete, state=DISABLED)
-btnDeleteInactive = Button(frameButtons, textvariable=btnDeleteInactiveText, width=60, command=Relicense_Inactive, state=DISABLED)
-btnSettingsStats = Button(frameButtons, textvariable = btnSettingsText, width=60, command=get_users_settings, state=DISABLED)
-btnRoles = Button(frameButtons, text="List Zoom user roles", width=60, command=get_acct_roles)
+btnRetrieve = Button(frameAccount[0], text="Retrieve All User Data", width=15, command=callback)
+btnOpen = Button(frameAccount[0], text="Open All User Data", image=iconFolder, compound = LEFT, width=35, command=csvOpen)
+btnOpenDelete = Button(frameAccount[0], textvariable=btnOpenDeleteText,image=iconFolder, compound = LEFT, width=50, command=csvOpenDelete, state=DISABLED)
+btnDeleteInactive = Button(frameAccount[0], textvariable=btnDeleteInactiveText, width=50, command=Relicense_Inactive, state=DISABLED)
+btnSettingsStats = Button(frameAccount[0], textvariable = btnSettingsText, width=50, command=get_users_settings, state=DISABLED)
+btnRoles = Button(frameAccount[0], text="List Zoom user roles", width=50, command=get_acct_roles)
 
 
-btn.grid(column = posC(0,colPos), row = pos(1,rowPos), sticky = NSEW)
+btnRetrieve.grid(column = posC(0,colPos), row = pos(1,rowPos), sticky = NSEW)
 btnOpen.grid(column = colPos+1, row = rowPos, sticky = NSEW)
 btnOpenDelete.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
 btnDeleteInactive.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
@@ -3178,67 +3302,67 @@ btnRoles.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSE
 #btnSAMLReorg.pack()
 #btnOpen = Button(root, text="Save Log", width=30, command=logSave)
 #btnOpen.pack()
-elblFilter = Label(frameStep2, text= "Limit to   ", bg = colorScheme['1'], fg = colorScheme['2'])
+elblFilter = Label(frameAccount[1], text= "Limit to   ", bg = colorScheme['1'], fg = colorScheme['2'])
 elblFilter.grid(row=rowPos, column = colPos + 2, sticky = W)
 
 filterGroup = StringVar()
 groupFilterList = ['All Users','Users in no Groups']
 filterGroup.set(groupFilterList[0])
-emenuGroupFilter = ttk.Combobox(frameStep2, textvariable=filterGroup, values=groupFilterList)
+emenuGroupFilter = ttk.Combobox(frameAccount[1], textvariable=filterGroup, values=groupFilterList)
 emenuGroupFilter.grid(row=rowPos, column = colPos + 2, sticky = E)
 
 
 chkBasic = IntVar(value=1)
-chkbxBasic = Checkbutton(frameStep2,text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
+chkbxBasic = Checkbutton(frameAccount[1],text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxBasic.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxBasic.config(bd=2)
 
 
 chkMeetings = IntVar()
-chkbxMeetings = Checkbutton(frameStep2,text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
+chkbxMeetings = Checkbutton(frameAccount[1],text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxMeetings.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxMeetings.config(bd=2)
 
 
 chkRec = IntVar()
-chkbxRecordings = Checkbutton(frameStep2,text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
+chkbxRecordings = Checkbutton(frameAccount[1],text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxRecordings.grid(row = pos(1,rowPos), column = colPos + 2, sticky = W)
 chkbxRecordings.config(bd=2)
 
 chkActivity = IntVar()
-chkbxActivity = Checkbutton(frameStep2,text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
+chkbxActivity = Checkbutton(frameAccount[1],text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
 chkbxActivity.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
 chkbxActivity.config(bd=2)
 
-eLbl8 = Label(frameStep2, text="No. of months to check for recordings", bg = colorScheme['1'], fg = colorScheme['2'])
+eLbl8 = Label(frameAccount[1], text="No. of months to check for recordings", bg = colorScheme['1'], fg = colorScheme['2'])
 eLbl8.grid(row = pos(1,rowPos), column = colPos + 2)
-eRecMonths = Entry(frameStep2)
+eRecMonths = Entry(frameAccount[1])
 eRecMonths.grid(row = pos(1,rowPos), column = colPos + 2)
 eRecMonths.delete(0, END)
 eRecMonths.insert(0, "6")
 
 
 
-eLblMonthsActive = Label(frameStep2, text="Months to be considered still active", bg = colorScheme['1'], fg = colorScheme['2'])
+eLblMonthsActive = Label(frameAccount[1], text="Months to be considered still active", bg = colorScheme['1'], fg = colorScheme['2'])
 eLblMonthsActive.grid(row = pos(1,rowPos), column = colPos + 2)
-eActiveUser = Entry(frameStep2)
+eActiveUser = Entry(frameAccount[1])
 eActiveUser.grid(row = pos(1,rowPos), column = colPos + 2)
 eActiveUser.delete(0, END)
 eActiveUser.insert(0, "0")
 
-#eLbl = Label(frameStep2, text="Months since last signin to be Inactive")
+#eLbl = Label(frameAccount[1], text="Months since last signin to be Inactive")
 #eLbl.grid(row = pos(1,rowPos), column = colPos, columnspan = int(colPosMax / 3))
 #eMonths = Entry(root)
 #eMonths.pack()
 
 
-eLblInactive = Label(frameStep2, text="Date of last login for an inactive user", bg = colorScheme['1'], fg = colorScheme['2'])
+eLblInactive = Label(frameAccount[1], text="Date of last login for an inactive user", bg = colorScheme['1'], fg = colorScheme['2'])
 eLblInactive.grid(row = pos(1,rowPos), column = colPos + 2)
 
-elblDate = Label(frameStep2, text= "mm/dd/yyyy  ", bg = colorScheme['1'], fg = colorScheme['2'])
+elblDate = Label(frameAccount[1], text= "mm/dd/yyyy  ", bg = colorScheme['1'], fg = colorScheme['2'])
 elblDate.grid(row=pos(1,rowPos), column = colPos + 2, sticky = W)
 
-eDate = Entry(frameStep2)
+eDate = Entry(frameAccount[1])
 eDate.grid(row = rowPos, column = colPos + 2,sticky = E)
 eDate.delete(0, END)
 eDate.insert(0, "01/01/2019")
