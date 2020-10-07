@@ -103,11 +103,17 @@ colorScheme =\
        {
            '0':'#000000',
            '1':'#FFFFFF',
-           '2':'#51608C',
-           '3':'#8697A6',
-           '4':'#BFCDD9',
-           '5':'#BF8756',
-           '6':'#8C4F2B'
+           '22':'#BFBDBC',
+           '3':'#31353D',
+           '2':'#403F3F',
+           '4':'#FFFDFB',
+           '5':'#7F7E7D',
+           '6':'#E5E3E1',
+           '20':'#51608C',
+           '30':'#8697A6',
+           '40':'#BFCDD9',
+           '50':'#BF8756',
+           '60':'#8C4F2B'
         }
 
 
@@ -149,6 +155,7 @@ apiURL =\
     }
 
 userDB = []
+userRawDB = {}
 groupDB = {}
 userInactiveDB = []
 logConfig = {}
@@ -1780,6 +1787,7 @@ def get_user_data(groupsDict):
     global progress
     global root
     global userDB
+    global userRawDB
     global userInactiveDB
     global cancelAction
     # get total page count, convert to integer, increment by 1
@@ -1880,11 +1888,21 @@ def get_user_data(groupsDict):
                     try:
                         for user in user_data['users']:
                             record_count += 1
-
+                            
+                            
+                            
                             try:
                                 userEmail = user['email']
+                            
+                                for record in user:
+                                    userRawDB[userEmail] = {record:user[record]}
+                                
+                            
                             except:
                                 userEmail = None
+                            
+                            
+                            
                             try:
                                 userID = user['id']
                             except Exception as e:
@@ -1909,6 +1927,7 @@ def get_user_data(groupsDict):
                                     except:
                                         userLastLogin = '2015-01-01T00:00:00Z'
                                 
+                                userLastLogin = timeLocal(userLastLogin)
                                 UTCdate = datetime.datetime.strptime(userLastLogin,'%Y-%m-%dT%H:%M:%SZ')
                                 loginDate =  UTCdate.date()
                                 
@@ -2557,34 +2576,10 @@ def menuButtons(idx):
     #frameControls[idx].grid_propagate(0)
     
     if idx is 0:
-        frameControls[0]['text'] = 'SETTINGS'
-        frameSettings[0].grid(\
-            row = pos(0,rowPos),
-            column = posC(0,colPos),
-            columnspan = 3,
-            sticky = N
-        )
-        frameSettings[1].grid(\
-            row = pos(1,rowPos),
-            column = posC(0,colPos),
-            sticky = NSEW
-        )
-       
+        frameControls[idx]['text'] = 'S E T T I N G S'
+        #Original grid settings are at bottom of code
     elif idx is 1:
         frameControls[idx]['text'] = 'ACCOUNT-LEVEL MANAGEMENT'
-
-        frameAccount[0].grid(\
-            row = pos(1,rowPos),
-            column= colPos + 0,
-            columnspan = colPosMax,
-            sticky = NSEW
-        )
-        frameProcess.grid(\
-            row = pos(1,rowPos),
-            columnspan = int(colPosMax/3),
-            sticky = NSEW
-        )
-
     elif idx is 2:
         frameControls[idx]['text'] = 'USER-LEVEL MANAGEMENT'
         frameUser.grid(\
@@ -2707,15 +2702,11 @@ def logConfigFrame():
         rows = 3
        
     frameSettings.append(\
-        LabelFrame(\
+        stdLabelFrameStyle(\
             frameControls[0],
-            padx = 30,
-            pady = 10,
             text = "Logging Options",
-            bg = colorScheme['1'],
-            fg = colorScheme['2']
             )
-    )
+    )  
     
     (f'{frameSettings}')
     frIdx = len(frameSettings) - 1
@@ -2723,31 +2714,31 @@ def logConfigFrame():
         
     frameSettings[frIdx].grid(row = 0, rowspan = rows, column = frColumns+1, sticky = W)   
     
-    chkbxLogTimeStamp = Checkbutton(frameSettings[frIdx],text='Timestamp', variable = logConfig['timestamp'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogTimeStamp = stdChkBxStyle(frameSettings[frIdx],text='Timestamp', variable = logConfig['timestamp'])
     chkbxLogTimeStamp.grid(row = pos(0,rowPos) , column = 0, sticky = W)
     chkbxLogTimeStamp.config(bd=2)
     
-    chkbxLogWrap = Checkbutton(frameSettings[frIdx],text='Wrap Lines', variable = logConfig['wrap'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogWrap = stdChkBxStyle(frameSettings[frIdx],text='Wrap Lines', variable = logConfig['wrap'])
     chkbxLogWrap.grid(row = pos(1,rowPos) , column = 0, sticky = W)
     chkbxLogWrap.config(bd=2)
     
-    chkbxLogInactive = Checkbutton(frameSettings[frIdx],text='Display Inactive Users', variable = logConfig['inactive'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogInactive = stdChkBxStyle(frameSettings[frIdx],text='Display Inactive Users', variable = logConfig['inactive'])
     chkbxLogInactive.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxLogInactive.config(bd=2)
     
-    chkbxLogNoGroup = Checkbutton(frameSettings[frIdx],text='Display Users In No Group', variable = logConfig['noGroup'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogNoGroup = stdChkBxStyle(frameSettings[frIdx],text='Display Users In No Group', variable = logConfig['noGroup'])
     chkbxLogNoGroup.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxLogNoGroup.config(bd=2)
     
-    chkbxLogSave = Checkbutton(frameSettings[frIdx],text=f'Save Logs', variable = logConfig['save'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxLogSave = stdChkBxStyle(frameSettings[frIdx],text=f'Save Logs', variable = logConfig['save'])
     chkbxLogSave.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxLogSave.config(bd=2)
     
-    chkbxDebug = Checkbutton(frameSettings[frIdx],text='Debug Mode', variable = logConfig['debug'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxDebug = stdChkBxStyle(frameSettings[frIdx],text='Debug Mode', variable = logConfig['debug'])
     chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxDebug.config(bd=2)
 
-    chkbxTest = Checkbutton(frameSettings[frIdx],text='Testing Mode', variable = logConfig['test'], bg = colorScheme['1'], fg = colorScheme['2'])
+    chkbxTest = stdChkBxStyle(frameSettings[frIdx],text='Testing Mode', variable = logConfig['test'])
     chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxTest.config(bd=2)
         
@@ -2779,7 +2770,7 @@ def logConfigWindow():
         frameConfig = LabelFrame(logConfigWindow, padx = 100, pady = 10, text = "Logging Options", bg = colorScheme['1'], fg = colorScheme['2'])
         frameConfig.grid(row = 0 , column = 0, sticky = W)   
         
-        chkbxLogTimeStamp = Checkbutton(frameConfig,text='Timestamp', variable = logConfig['timestamp'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxLogTimeStamp = stdChkBxStyle(frameConfig,text='Timestamp', variable = logConfig['timestamp'])
         chkbxLogTimeStamp.grid(row = pos(0,rowPos) , column = 0, sticky = W)
         chkbxLogTimeStamp.config(bd=2)
         
@@ -2807,6 +2798,184 @@ def logConfigWindow():
         chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxTest.config(bd=2)
 
+def stdChkBxStyle(origin, text = None, image = None, width = 'std', command = None, state = "normal", variable = None):
+    
+    try:
+        if width == 'std':
+            width = 40
+    except:
+        None
+        
+    chkbxObj = Checkbutton(\
+        origin,
+        text = text,
+        bd = 0,
+        image = image,
+        compound = LEFT,
+        padx = 2,
+        pady = 2,
+        width = width,
+        #disabledforeground = colorScheme['5'],
+        bg= colorScheme['1'],
+        fg= colorScheme['2'],
+        highlightcolor = colorScheme['1'],
+        #activebackground = colorScheme['1'],
+        #activeforeground = colorScheme['3'],        
+        relief='flat',
+        anchor = W,
+        font = ('verdana', 8, 'bold'),
+        state = state,
+        variable = variable,
+        command = command
+        )
+    
+    return chkbxObj        
+        
+def stdFontStyle(theme = "", font = 'verdana',size = 8, weight = 'normal'):
+    
+    
+    if theme == "":
+        return (font, size, weight)
+    if theme == "title":
+        return ("verdana", 9, 'bold')
+
+def stdFrameSubMenuStyle(origin):
+    objLabelFrame = LabelFrame(\
+        origin,
+        padx = 0,
+        pady = 0,
+        bg= colorScheme['3'],
+        fg= colorScheme['4'],
+        bd = 0,
+        relief='flat',
+        text = ""
+        )
+    
+    objLabel = Label(\
+        objLabelFrame,
+        text="             A C T I O N S            ",
+        bg = colorScheme['3'],
+        fg = colorScheme['4'],
+        justify = 'center'
+    )
+
+    objLabel.grid(row = pos(0,rowPos), column= 0, sticky = N)
+
+    return objLabelFrame
+    
+def stdButtonMenuStyle(origin, text = None, image = None, width = 'std', command = None, state = "normal", textvariable = None):
+    try:
+        if width == 'std':
+            width = 18
+    except:
+        None
+        
+    btnObj = Button(\
+        origin,
+        text = text,
+        bd = 2,
+        image= image,
+        compound = LEFT,
+        padx = 5,
+        pady = 8,
+        width= width,
+        bg= colorScheme['2'],
+        fg= colorScheme['4'],        
+        highlightcolor = colorScheme['3'],
+        activebackground = colorScheme['1'],
+        activeforeground = colorScheme['3'],       
+        relief='flat',
+        anchor = 'center',
+        cursor = 'hand2',
+        font= ('verdana', 9, 'bold'),
+        state = state,
+        textvariable = textvariable,
+        command = command
+        )
+    
+    return btnObj
+    
+def stdEntryStyle(origin, width = 15, show = None ):
+
+    entryObj = Entry(\
+        origin,
+        show = show,
+        bd = 2,
+        bg= colorScheme['4'],
+        fg= colorScheme['3'],
+        font= stdFontStyle(),
+        textvariable = None,
+        state = 'normal',
+        relief = 'groove',
+        width = width,
+        justify = 'left'
+    )
+    
+    return entryObj
+def stdLabelStyle(origin, text, theme = ""):
+    
+    objLabel = Label(\
+        origin,
+        text = text,
+        bg = colorScheme['1'],
+        fg = colorScheme['2'],
+        font = stdFontStyle(theme = theme)
+    )
+    
+    return objLabel
+    
+def stdLabelFrameStyle(origin, text = None, image = None, width = 100):
+    
+    frameObj = LabelFrame(\
+        origin,
+        padx = 5,
+        pady = 5,
+        bg= colorScheme['1'],
+        fg= colorScheme['2'],
+        bd = 0,
+        #relief='raised',
+        width = width,
+        labelanchor = N+W,
+        text = text
+    )
+    
+    return frameObj
+    
+def stdButtonStyle(origin, btnTxt = None, btnImg = None, btnWidth = 'std', btnCmd = None, btnState = "normal", btnVar = None):
+    
+    try:
+        if btnWidth == 'std':
+            btnWidth = 100
+    except:
+        None
+        
+    btnObj = Button(\
+        origin,
+        text= btnTxt,
+        bd = 1,
+        image=btnImg,
+        compound = LEFT,
+        padx = 5,
+        pady = 5,
+        width=btnWidth,
+        #disabledforeground = colorScheme['5'],
+        bg = colorScheme['2'],
+        fg = colorScheme['1'],
+        wraplength=140,
+        highlightcolor = colorScheme['1'],
+        activebackground = colorScheme['1'],
+        activeforeground = colorScheme['3'],        
+        relief = 'raised',
+        anchor = 'center',
+        font = stdFontStyle(),
+        state = btnState,
+        cursor = 'hand2',
+        textvariable = btnVar,
+        command = btnCmd
+        )
+    
+    return btnObj
+
 rowPos = 0
 colPos = 0
 colPosMax = 12
@@ -2815,7 +2984,7 @@ colPosMax = 12
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
 root.configure(bg=colorScheme["1"])
-root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.10')
+root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.12')
 #root.geometry("90x10")
 root.resizable(height = False, width = False)
 
@@ -2883,6 +3052,8 @@ frameMenu = LabelFrame(\
     fg= colorScheme['1'],
     highlightcolor = colorScheme['3'],
     relief='flat',
+    padx = 0,
+    pady = 0,
     labelanchor = N,
     font= ('verdana', 10, 'bold'),
     text = "OPTIONS" 
@@ -2901,7 +3072,7 @@ for i in range(0,4):
             relief='flat',
             labelanchor = N+W,
             font= ('verdana', 10, 'bold'),
-            text = "CONTROLS"
+            text = ""
         )
     )
     
@@ -2988,58 +3159,53 @@ for fControl in frameControls:
 
 frameAccount = []
 frameSettings = []
+frameSettings1 = []
 
-
-frameSettings.append(LabelFrame(\
+# Three no-title frames inside settings(actions, Credentials, Logging)
+frameSettings.append(stdFrameSubMenuStyle(\
     frameControls[0],
-    #padx = 5,
-    #pady = 5,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
-    #bd = 3,
-    #relief='raised',
-    text = "Zoom API Credentials"
     ))
 
-frameSettings.append(LabelFrame(\
+
+frameSettings.append(stdLabelFrameStyle(\
     frameControls[0],
-    #padx = 5,
-    #pady = 5,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
-    #bd = 3,
-    #relief='raised',
-    text = "LDAP Credentials"
+    text = ""
     ))
 
 
-frameProcess = LabelFrame(\
-    frameControls[1],
-    padx=0,
-    pady = 0,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],    
-    text = "Restart Processing"
-    )
-
-frameAccount.append(LabelFrame(\
-    frameControls[1],
-    padx=0,
-    pady = 0,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
-    bd = 0,
-    text = "Actions"
+frameSettings1.append(stdLabelFrameStyle(\
+    frameSettings[1],
+    text = ""
     ))
 
-frameAccount.append(LabelFrame(\
+
+
+
+
+
+frameAccount.append(stdFrameSubMenuStyle(frameControls[1]))
+    
+
+frameAccount.append(stdLabelFrameStyle(\
     frameControls[1],
-    padx = 10,
-    pady =5,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
     text="Options that prevent user updates"
     ))
+
+
+
+frameAccount[0].grid(\
+            row = pos(0,rowPos),
+            column = posC(0,colPos),
+            sticky = NSEW
+        )
+
+
+frameAccount[1].grid(\
+            row = pos(0,rowPos),
+            column= posC(1,colPos),
+            sticky = NSEW
+        )
+
 
 frameUser = LabelFrame(\
     frameControls[2],
@@ -3062,16 +3228,16 @@ frameAPI = LabelFrame(\
 
    
 frameSettings[0].grid(\
-        row = pos(0,rowPos), column = posC(0,colPos), columnspan = 3, sticky = W)
-
-root.update()
-(frColumns, frRows) = frameSettings[0].grid_size()
+        row = pos(0,rowPos), rowspan = 10, column = posC(0,colPos), sticky = NSEW)
 
 frameSettings[1].grid(\
-        row = pos(1,frRows), column = posC(0,frColumns), columnspan = 3, sticky = W)
+        row = pos(0,rowPos), column = posC(1,colPos), sticky = N+S+W)
 
-#frameSettings[0].grid(\
-#        row = pos(0,rowPos), column = posC(1,3), rowspan = 2, columnspan = 4, sticky = E)
+frameSettings1[0].grid(\
+        row = pos(0,rowPos), column = posC(0,colPos), sticky = NSEW)
+
+#root.update()
+#(frRows, frColumns) = frameSettings1[0].grid_size()
 
 
 
@@ -3091,62 +3257,33 @@ lblStatusAPI.grid(\
 
 btnMenu = []
 
-btn = Button(\
+btn = stdButtonMenuStyle(\
     frameMenu,
-    bg= colorScheme['2'],
-    fg= colorScheme['4'],
-    highlightcolor = colorScheme['3'],
-    activebackground = colorScheme['1'],
-    activeforeground = colorScheme['3'],
-    relief='flat',
     text='Settings',
-    width=20,
     command = lambda: menuButtons(0)
     )
 
-
 btnMenu.append(btn)
 
-btn = Button(\
+btn = stdButtonMenuStyle(\
     frameMenu,
-    bg= colorScheme['2'],
-    fg= colorScheme['4'],
-    highlightcolor = colorScheme['3'],
-    activebackground = colorScheme['1'],
-    activeforeground = colorScheme['3'],
-    relief='flat',
-    text="Account Actions",
-    width=20,
+    text="Account Level",
     command= lambda: menuButtons(1)
     )
 
 btnMenu.append(btn)
 
-btn = Button(\
+btn = stdButtonMenuStyle(\
     frameMenu,
-    bg= colorScheme['2'],
-    fg= colorScheme['4'],
-    highlightcolor = colorScheme['3'],
-    activebackground = colorScheme['1'],
-    activeforeground = colorScheme['3'],
-    relief='flat',
-    text="User Actions",
-    width=20,
+    text="User Level",
     command= lambda: menuButtons(2)
     )
 
 btnMenu.append(btn)
 
-btn = Button(\
+btn = stdButtonMenuStyle(\
     frameMenu,
-    bg= colorScheme['2'],
-    fg= colorScheme['4'],
-    highlightcolor = colorScheme['3'],
-    activebackground = colorScheme['1'],
-    activeforeground = colorScheme['3'],
-    relief='flat',
     text="Custom API",
-    width=20,
     command= lambda: menuButtons(3)
     )
 
@@ -3212,55 +3349,58 @@ logConfigFrame()
 
 
 
-
-
-
-btnOpenCreds = Button(\
+btnOpenCreds = stdButtonStyle(\
     frameSettings[0],
-    text="Open Credentials File",
-    image=iconFolder,
-    compound = LEFT,
-    width=100,
-    command=openCredentials
+    btnTxt = 'Open Credentials File',
+    btnImg = iconFolder,
+    btnCmd = openCredentials
     )
 
 
 btnOpenCreds.grid(\
-    row = pos(0,rowPos), columnspan = 4, column = posC(0,colPos), sticky = NSEW )
+    row = pos(2,rowPos), column = posC(0,colPos), padx = (10,10), sticky = NSEW )
 
 ##@@@@@@@
-eLbl1 = Label(frameSettings[0], text="API Key", bg = colorScheme['1'], fg = colorScheme['2'])
-eAPIKey = Entry(frameSettings[0])
-eLbl2 = Label(frameSettings[0], text="API Secret", bg = colorScheme['1'], fg = colorScheme['2'])
-eAPISecret = Entry(frameSettings[0], show='*')
-eLbl3 =  Label(frameSettings[0], text="Email Domain", bg = colorScheme['1'], fg = colorScheme['2'])
-eDomain = Entry(frameSettings[0])
+eLblAPI = stdLabelStyle(frameSettings1[0], text="Zoom Communication", theme = "title")
+eLblAPIKey = stdLabelStyle(frameSettings1[0], text="API Key*")
+eAPIKey = stdEntryStyle(frameSettings1[0])
+eLblAPISecret = stdLabelStyle(frameSettings1[0], text="API Secret*")
+eAPISecret = stdEntryStyle(frameSettings1[0], show='*')
+
+eLblDomainInfo = stdLabelStyle(frameSettings1[0], text="Auto-Fill Settings", theme = "title")
+eLblDomain =  stdLabelStyle(frameSettings1[0], text="Email Domain")
+eDomain = stdEntryStyle(frameSettings1[0])
 
 
-eLbl4 = Label(frameSettings[1], text="LDAP Host", bg = colorScheme['1'], fg = colorScheme['2'])
-eLDAPHost = Entry(frameSettings[1])
-eLbl5 = Label(frameSettings[1], text="LDAP Login", bg = colorScheme['1'], fg = colorScheme['2'])
-eLDAPUser = Entry(frameSettings[1])
-eLbl6 = Label(frameSettings[1], text="LDAP Password", bg = colorScheme['1'], fg = colorScheme['2'])
-eLDAPPass = Entry(frameSettings[1], show='*')
+eLblLDAP = stdLabelStyle(frameSettings1[0], text="LDAP Settings", theme = "title")
+eLblLDAPHost = stdLabelStyle(frameSettings1[0], text="LDAP Host")
+eLDAPHost = stdEntryStyle(frameSettings1[0])
+eLblLDAPUser = stdLabelStyle(frameSettings1[0], text="LDAP Login")
+eLDAPUser = stdEntryStyle(frameSettings1[0])
+eLblLDAPPass = stdLabelStyle(frameSettings1[0], text="LDAP Password")
+eLDAPPass = stdEntryStyle(frameSettings1[0], show='*')
 
 
-eLbl1.grid(row = pos(1,rowPos), column= colPos, sticky = E)
-eAPIKey.grid(row = rowPos, column = colPos+1)
+eLblAPI.grid(row = pos(0,rowPos), column = posC(0,colPos), sticky = NSEW)
+eLblAPIKey.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eAPIKey.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-eLbl2.grid(row = pos(1,rowPos), column = colPos, sticky = E)
-eAPISecret.grid(row = rowPos, column = colPos + 1)
-eLbl3.grid(row = pos(1,rowPos), column = colPos, sticky = E)
-eDomain.grid(row = rowPos, column = colPos + 1)
+eLblAPISecret.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eAPISecret.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-eLbl4.grid(row = pos(1,rowPos), column = colPos, sticky = E)
-eLDAPHost.grid(row = rowPos, column = colPos + 1)
+eLblDomainInfo.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+eLblDomain.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eDomain.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-eLbl5.grid(row = pos(1,rowPos), column = colPos, sticky = E)
-eLDAPUser.grid(row = rowPos, column = colPos + 1)
+eLblLDAP.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+eLblLDAPHost.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eLDAPHost.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-eLbl6.grid(row = pos(1,rowPos), column = colPos, sticky = E)
-eLDAPPass.grid(row = rowPos, column = colPos + 1)
+eLblLDAPUser.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eLDAPUser.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+eLblLDAPPass.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eLDAPPass.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
 
 #eLbl3 = Label(root, text="Number to Relicense (debug)")
@@ -3271,30 +3411,54 @@ eLDAPPass.grid(row = rowPos, column = colPos + 1)
 
 eAPIKey.focus_set()
 
-elblProcEmail =  Label(frameProcess, text="Email", bg = colorScheme['1'], fg = colorScheme['2'])
-etxtProcEmail = Entry(frameProcess)
-elblProcEmail.grid(row = pos(1,rowPos), column = colPos, sticky = E)
-etxtProcEmail.grid(row = rowPos, column = colPos + 1)
+
 
 
 btnOpenDeleteText = StringVar()
 btnDeleteInactiveText = StringVar()
 btnSettingsText = StringVar()
 
-btnRetrieve = Button(frameAccount[0], text="Retrieve All User Data", width=15, command=callback)
-btnOpen = Button(frameAccount[0], text="Open All User Data", image=iconFolder, compound = LEFT, width=35, command=csvOpen)
-btnOpenDelete = Button(frameAccount[0], textvariable=btnOpenDeleteText,image=iconFolder, compound = LEFT, width=50, command=csvOpenDelete, state=DISABLED)
-btnDeleteInactive = Button(frameAccount[0], textvariable=btnDeleteInactiveText, width=50, command=Relicense_Inactive, state=DISABLED)
-btnSettingsStats = Button(frameAccount[0], textvariable = btnSettingsText, width=50, command=get_users_settings, state=DISABLED)
-btnRoles = Button(frameAccount[0], text="List Zoom user roles", width=50, command=get_acct_roles)
+btnRetrieve = stdButtonStyle(frameAccount[0], btnTxt="Retrieve All User Data", btnWidth=25, btnCmd=callback)
+btnOpen = stdButtonStyle(frameAccount[0], btnTxt="Open All User Data", btnImg=iconFolder, btnWidth=25, btnCmd=csvOpen)
+btnOpenDelete = stdButtonStyle(\
+    frameAccount[0],
+    btnVar=btnOpenDeleteText,
+    btnImg=iconFolder,
+    btnWidth=25,
+    btnCmd = csvOpenDelete,
+    btnState=DISABLED
+    )
+
+btnDeleteInactive = stdButtonStyle(\
+    frameAccount[0],
+    btnVar = btnDeleteInactiveText,
+    btnWidth = 25,
+    btnCmd = Relicense_Inactive,
+    btnState = DISABLED
+    )
+
+btnSettingsStats = stdButtonStyle(
+    frameAccount[0],
+    btnVar = btnSettingsText,
+    btnWidth = 25,
+    btnCmd = get_users_settings,
+    btnState = DISABLED
+    )
+
+btnRoles = stdButtonStyle(\
+    frameAccount[0],
+    btnTxt="List Zoom user roles",
+    btnWidth=25,
+    btnCmd=get_acct_roles
+)
 
 
-btnRetrieve.grid(column = posC(0,colPos), row = pos(1,rowPos), sticky = NSEW)
-btnOpen.grid(column = colPos+1, row = rowPos, sticky = NSEW)
-btnOpenDelete.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
-btnDeleteInactive.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
-btnSettingsStats.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
-btnRoles.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSEW)
+btnRetrieve.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+btnOpen.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+btnOpenDelete.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+btnDeleteInactive.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+btnSettingsStats.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+btnRoles.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
 
 #btnDeleteInvalid = Button(root, text="Delete All Invalid Users", width=30, command=callback, state=DISABLED)
 #btnDeleteInvalid.pack()
@@ -3303,50 +3467,50 @@ btnRoles.grid(column = colPos, columnspan = 2, row = pos(1,rowPos), sticky = NSE
 #btnOpen = Button(root, text="Save Log", width=30, command=logSave)
 #btnOpen.pack()
 elblFilter = Label(frameAccount[1], text= "Limit to   ", bg = colorScheme['1'], fg = colorScheme['2'])
-elblFilter.grid(row=rowPos, column = colPos + 2, sticky = W)
+elblFilter.grid(row=rowPos, column = posC(0,colPos), sticky = W)
 
 filterGroup = StringVar()
 groupFilterList = ['All Users','Users in no Groups']
 filterGroup.set(groupFilterList[0])
 emenuGroupFilter = ttk.Combobox(frameAccount[1], textvariable=filterGroup, values=groupFilterList)
-emenuGroupFilter.grid(row=rowPos, column = colPos + 2, sticky = E)
+emenuGroupFilter.grid(row=rowPos, column = posC(0,colPos), sticky = E)
 
 
 chkBasic = IntVar(value=1)
-chkbxBasic = Checkbutton(frameAccount[1],text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
-chkbxBasic.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
+chkbxBasic = stdChkBxStyle(frameAccount[1],text='Change user to Basic (No Deletes)', variable = chkBasic, command = btnTxtUpdates)
+chkbxBasic.grid(row = pos(1,rowPos) , column = posC(0,colPos), sticky = W)
 chkbxBasic.config(bd=2)
 
 
 chkMeetings = IntVar()
-chkbxMeetings = Checkbutton(frameAccount[1],text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
-chkbxMeetings.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
+chkbxMeetings = stdChkBxStyle(frameAccount[1],text='Check for Upcoming Meetings', variable = chkMeetings, command = btnTxtUpdates)
+chkbxMeetings.grid(row = pos(1,rowPos) ,column = posC(0,colPos), sticky = W)
 chkbxMeetings.config(bd=2)
 
 
 chkRec = IntVar()
-chkbxRecordings = Checkbutton(frameAccount[1],text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
-chkbxRecordings.grid(row = pos(1,rowPos), column = colPos + 2, sticky = W)
+chkbxRecordings = stdChkBxStyle(frameAccount[1],text='Check for Cloud Recordings', variable = chkRec, command = btnTxtUpdates)
+chkbxRecordings.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 chkbxRecordings.config(bd=2)
 
 chkActivity = IntVar()
-chkbxActivity = Checkbutton(frameAccount[1],text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates, bg = colorScheme['1'], fg = colorScheme['2'])
-chkbxActivity.grid(row = pos(1,rowPos) , column = colPos + 2, sticky = W)
+chkbxActivity = stdChkBxStyle(frameAccount[1],text='Check for user Activity', variable = chkActivity, command = btnTxtUpdates)
+chkbxActivity.grid(row = pos(1,rowPos) , column = posC(0,colPos), sticky = W)
 chkbxActivity.config(bd=2)
 
 eLbl8 = Label(frameAccount[1], text="No. of months to check for recordings", bg = colorScheme['1'], fg = colorScheme['2'])
-eLbl8.grid(row = pos(1,rowPos), column = colPos + 2)
-eRecMonths = Entry(frameAccount[1])
-eRecMonths.grid(row = pos(1,rowPos), column = colPos + 2)
+eLbl8.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
+eRecMonths = stdEntryStyle(frameAccount[1])
+eRecMonths.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 eRecMonths.delete(0, END)
 eRecMonths.insert(0, "6")
 
 
 
 eLblMonthsActive = Label(frameAccount[1], text="Months to be considered still active", bg = colorScheme['1'], fg = colorScheme['2'])
-eLblMonthsActive.grid(row = pos(1,rowPos), column = colPos + 2)
-eActiveUser = Entry(frameAccount[1])
-eActiveUser.grid(row = pos(1,rowPos), column = colPos + 2)
+eLblMonthsActive.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
+eActiveUser = stdEntryStyle(frameAccount[1])
+eActiveUser.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 eActiveUser.delete(0, END)
 eActiveUser.insert(0, "0")
 
@@ -3356,16 +3520,37 @@ eActiveUser.insert(0, "0")
 #eMonths.pack()
 
 
-eLblInactive = Label(frameAccount[1], text="Date of last login for an inactive user", bg = colorScheme['1'], fg = colorScheme['2'])
-eLblInactive.grid(row = pos(1,rowPos), column = colPos + 2)
+eLblInactive = Label(frameAccount[1], text="Date of last login for an inactive user (mm/dd/yyyy)", bg = colorScheme['1'], fg = colorScheme['2'])
+eLblInactive.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 
-elblDate = Label(frameAccount[1], text= "mm/dd/yyyy  ", bg = colorScheme['1'], fg = colorScheme['2'])
-elblDate.grid(row=pos(1,rowPos), column = colPos + 2, sticky = W)
-
-eDate = Entry(frameAccount[1])
-eDate.grid(row = rowPos, column = colPos + 2,sticky = E)
+eDate = stdEntryStyle(frameAccount[1])
+eDate.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 eDate.delete(0, END)
 eDate.insert(0, "01/01/2019")
+
+frameProcess = LabelFrame(\
+    frameAccount[1],
+    padx = 0,
+    pady = 0,
+    bg = colorScheme['1'],
+    fg = colorScheme['2'],    
+    text = "Restart Processing"
+    )
+
+frameProcess.grid(\
+            row = pos(2,rowPos),
+            column = 0,
+            #columnspan = frColumns+1,
+            sticky = NSEW
+        )
+
+elblProcEmail = stdLabelStyle(frameProcess, text="Email")
+etxtProcEmail = stdEntryStyle(frameProcess)
+elblProcEmail.grid(row = pos(0,rowPos), column = posC(0,colPos), sticky = NSEW)
+etxtProcEmail.grid(row = rowPos, column = posC(1,colPos), sticky = E)
+
+
+
 
 
 
