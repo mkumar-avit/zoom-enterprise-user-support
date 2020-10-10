@@ -1,0 +1,191 @@
+{
+	"Accounts": {
+		"List Sub Accounts": {
+			"url": "/accounts",
+			"method": "get",
+			"query_param": {
+				"page_size": 300,
+				"page_number": 1,
+				"next_page_token": "str"
+			}
+		},
+		"Create a Sub Account": {
+			"url": "/accounts",
+			"method": "post",
+			"body": {
+				"object": {
+					"first_name": "str",
+					"last_name": "str",
+					"email": "str",
+					"password": "str"
+				},
+				"options": {
+					"share_rc": "bool",
+					"room_connector_list": ["str"],
+					"share_mc": "bool",
+					"meeting_connector_list": ["str"],
+					"pay_mode": "str"
+				},
+				"account_name": "str"
+			}
+		},
+		"Get a Sub Account": {
+			"url": "/accounts/{accountId}",
+			"method": "get",
+			"uid": "accountId"
+		},
+		"Disassociate a Sub Account": {
+			"url": "/accounts/{accountId}",
+			"method": "delete",
+			"uid": "accountId"
+		},
+		"Update Options": {
+			"url": "/accounts/{accountId}/options",
+			"method": "patch ",
+			"uid": "accountId",
+			"body": {
+				"object": {
+					"share_rc": "bool",
+					"room_connector_list": ["str"],
+					"share_mc": "bool",
+					"meeting_connector_list": ["str"],
+					"pay_mode": "str"
+				}
+			}
+		},
+		"Get Settings": {
+			"url": "/accounts/{accountId}/settings",
+			"method": "get",
+			"path_param": "accountId",
+			"query_param": {
+				"option": [
+					"meeting_authentication",
+					"recording_authentication",
+					"security"
+				]
+			}
+		},
+		"Update Settings": {
+			"url": "/accounts/{accountId}/settings",
+			"method": "patch",
+			"path_param": "accountId",
+			"query_param": {
+				"option": [
+					"meeting_authentication",
+					"recording_authentication",
+					"security"
+				]
+			},
+			"body": {
+				"object": {
+					"schedule_meeting": {
+						"host_video": "bool",
+						"participant_video": "bool",
+						"audio_type": [
+							"both",
+							"telephony",
+							"voip",
+							"thirdParty"
+						],
+						"join_before_host": "bool",
+						"enforce_login": "bool",
+						"enforce_login_with_domains": "bool",
+						"enforce_login_domains": "str",
+						"not_store_meeting_topic": "bool",
+						"force_pmi_jbh_password": "bool",
+						"use_pmi_for_instant_meeting": "bool",
+						"require_password_for_scheduling_new_meetings": "bool",
+						"require_password_for_scheduled_meetings": "bool",
+						"require_password_for_instant_meetings": "bool",
+						"require_password_for_pmi_meetings": "str",
+						"meeting_password_requirement": {
+							"length": "int",
+							"have_letter": "bool",
+							"have_number": "bool",
+							"have_special_character": "bool",
+							"only_allow_numeric": "bool",
+							"have_upper_and_lower_characters": "bool",
+							"consecutive_characters_length": "int",
+							"weak_enhance_dectection": "bool"
+						},
+						"personal_meeting": "bool",
+						"in_meeting": {
+							"e2e_encryption": "bool",
+							"chat": "bool",
+							"private_chat": "bool",
+							"auto_saving_chat": "bool",
+							"entry_exit_chime": [
+								"host",
+								"all",
+								"none"
+							],
+							"record_play_own_voice": "bool",
+							"feeback": "bool",
+							"post_meeting_feedback": "bool",
+							"co_host": "bool",
+							"attendee_on_hold": "bool",
+							"show_meeting_control_toolbar": "bool",
+							"allow_show_zoom_windows": "bool",
+							"annotation": "bool",
+							"whiteboard": "bool",
+							"webinar_question_answer": "bool",
+							"anonymous_question_answer": "bool",
+							"breakout_room": "bool",
+							"closed_caption": "bool",
+							"far_end_camera_control": "bool",
+							"group_hd": "bool",
+							"virtual_background": "bool",
+							"watermark": "bool",
+							"auto_guest_join": "bool",
+							"auto_answer": "bool",
+							"p2p_connection": "bool",
+							"p2p_ports": "bool",
+							"ports_range": "str",
+							"sending_default_email_invites": "bool",
+							"use_html_format_email": "bool",
+							"dscp_marking": "bool",
+							"dscp_video": "int",
+							"dscp_audio": "int",
+							"stereo_audio": "bool",
+							"original_audio": "bool",
+							"screen_sharing": "bool",
+							"remote_control": "bool",
+							"allow_live_streaming": "bool",
+							"workplace_by_facebook": "bool",
+							"custom_live_streaming_service": "bool",
+							"custom_service_instructions": "str",
+							"custom_data_center_regions": "bool",
+							"data_center_regions": [
+								"EU",
+								"HK",
+								"AU",
+								"IN",
+								"LA",
+								"TY",
+								"CN",
+								"US",
+								"CA"
+							],
+							"meeting_reactions": "bool",
+							"show_a_join_from_your_browser_link": "bool",
+							"allow_participants_to_rename": "bool",
+							"who_can_share_screen": [
+								"host",
+								"all"
+							],
+							"who_can_share_screen_when_someone_is_sharing": [
+								"host",
+								"all"
+							]
+						},
+						"email_notification": {
+							"cloud_recording_available_reminder": "bool",
+							"jbh_reminder": "bool",
+							"cancel_meeting_reminder": "bool"
+						}
+					}
+				}
+			}
+		}
+	}
+}
