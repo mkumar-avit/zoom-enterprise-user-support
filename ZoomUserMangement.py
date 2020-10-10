@@ -86,6 +86,7 @@ SETTINGS_FILE = "Zoom Group Setting Tracking.csv"
 ## GLOBAL VARIABLES ##
 maxMonths = 0
 maxNum = 0
+indexList = []
 cancelAction = False
 fileLog = ""
 
@@ -196,15 +197,31 @@ def logging(text ,save=True):
      
         if len(text) >= lineLenMax and logConfig['wrap'].get() == 1:
             if '{' in text:
-                text.replace('{', '{\n')  
-            if '}' in text:
-                text.replace('}', '}\n')
-            
-            textChunk = [text[i:i+lineLenMax] for i in range(0, len(text), lineLenMax)]
-            #print(f' Dated Text {len(textChunk)}:{textChunk}')
-            for i in range(len(textChunk) - 1, -1, -1):
-                #logData.set(textChunk[i])
-                listbox.insert(0, textChunk[i])
+                try:
+                    text = text.split("Response:")
+                    text = text[1]
+                except:
+                    None
+                text = text.replace('{', '')
+                text = text.replace('}','')
+                text = text.replace('[','')
+                text = text.replace(']','')
+                text = text.replace("'",'')
+                text = text.replace("_",' ')
+                
+                texthalf = text.split(",")
+                for i in range(len(texthalf) -1, -1, -1):
+                    listbox.insert(0,texthalf[i])
+            else:                
+                #text.replace('{', '{\n')  
+                #if '}' in text:
+                #    text.replace('}', '}\n')
+                
+                textChunk = [text[i:i+lineLenMax] for i in range(0, len(text), lineLenMax)]
+                #print(f' Dated Text {len(textChunk)}:{textChunk}')
+                for i in range(len(textChunk) - 1, -1, -1):
+                    #logData.set(textChunk[i])
+                    listbox.insert(0, textChunk[i])
         else:
             #logData.set(text)
             listbox.insert(0, text)
@@ -422,7 +439,7 @@ def openCredentials():
     except:
         logging("Invalid credentials file.")
  
- 
+
 def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames = ""):
     csvData = []
     
@@ -552,6 +569,27 @@ def csvOpenDelete():
         logging(f'Error in reading Email file: {e}')        
     
     cancelActions('reset')
+
+def writeRawUserData(userData):
+    with open('userData.json', 'w') as jsonFile:
+        json.dump(userData, jsonFile)
+
+def openRawUserData():
+    data = None
+    
+    with open('userData.json') as json_file:
+        data = json.loads(json_file)
+        
+    return data
+    
+
+def openAPIListDetailed():
+    data = None
+    
+    with open('ZoomAPI-Detailed.json') as jsonFile:
+        data = json.load(jsonFile)
+    return data
+
 
 def send_REST_request(apiType, data="", body= None, param = None, rType = "get", note=""):
     '''
@@ -2072,7 +2110,7 @@ def get_user_data(groupsDict):
                                 user_ids = []
                                 
                             
-                      
+                        
 
                     except:
                         None
@@ -2100,7 +2138,9 @@ def get_user_data(groupsDict):
                     #print("Time Remaining: {:.2f}s, {}/{} : {}".format(runAvg,page,total_pages,user_ids))
                 # print the contents using zip format.
 
-          
+                
+                
+                
                 for userLicense in licenseCnt['total']:
                     logging(f'Total {userLicense} Users Counted: {licenseCnt["total"][userLicense]}')
                 
@@ -2109,8 +2149,7 @@ def get_user_data(groupsDict):
                 logging('User Data Pulled:  {}'.format(len(userDB)))
                 logging('Users Inactive: {}'.format(len(userInactiveDB)))
  
-
-                
+                writeRawUserData(userRawDB) 
         except Exception as e:
             logging ('File Write Error, please close file it may be open in Excel\n{}'.format(e))
             data = None
@@ -2209,6 +2248,7 @@ def Relicense_Inactive():
 
     cancelActions('reset')
 
+            
 def onListSelect(event):
     global eDomain
     global eEMail
@@ -2220,6 +2260,12 @@ def onListSelect(event):
         idx = 0
     value = objWidget.get(idx)
     print('You selected item {}: {}, checking for domain: {}'.format(idx, value, eDomain.get()))
+    
+    if logConfig['clipboard'].get() == 1:
+        root.clipboard_clear()
+        selected = listbox.get(ANCHOR)
+        root.clipboard_append(selected)
+        
     data = value.split()
     for item in data:
         if f'@{eDomain.get()}' in item:
@@ -2235,11 +2281,10 @@ def menuAPICommand(eventObject):
     etxtAPI.insert(0, command)
     emenuAPICmd.configure(width=20)
     
-    
-def menuAPICategory(eventObject):
+def menuAPICmdValues(category):
     global apiCommandList
-    #logging('Triggered API Category')
-    category = emenuAPICat.get()
+    global emenuAPICmd
+    global apiCommand
     
     apiCommandList.clear()
     
@@ -2248,8 +2293,15 @@ def menuAPICategory(eventObject):
         
     emenuAPICmd['values'] = apiCommandList
     apiCommand.set(apiCommandList[0])
+    emenuAPICmd.configure(width=20)
     
-    #resizeFuncAPICat()
+def menuAPICategory(eventObject):
+    global apiCommandList
+    #logging('Triggered API Category')
+    category = emenuAPICat.get()
+        
+    menuAPICmdValues(category)
+    
     etxtAPI.delete(0, END)
     etxtAPI.insert(0, apiCommandList[0])
     emenuAPICmd.configure(width=20)
@@ -2590,28 +2642,18 @@ def menuButtons(idx):
         )
     elif idx is 3:
         frameControls[idx]['text'] = 'ZOOM API COMMANDS'
-        frameAPI.grid(\
-            row = pos(0,rowPos),
-            column = posC(0,colPos),
-            columnspan = 3,
-            sticky = NSEW
-        )
-    
-    
      
     (col,row) = frameAccount[0].grid_size()
-     
-    print(f'G0: {col}, {row}')
-    
     root.update()
     frameAccount[1].grid(\
         row = 0,
-        rowspan = row,
+        rowspan = row+1,
         column= col + 15,
         columnspan = 2,
         sticky = NSEW
     )
-    
+    frameAccount[1].grid_columnconfigure(0, weight=1)
+    frameAccount[1].grid_rowconfigure(0, weight=1)
     
     print (f'Base Height: {frameControls[0].winfo_height()},  Frame Now: {frameControls[idx].winfo_height()}')
     if frameControls[0].winfo_height() > frameControls[idx].winfo_height():
@@ -2733,6 +2775,10 @@ def logConfigFrame():
     chkbxLogSave = stdChkBxStyle(frameSettings[frIdx],text=f'Save Logs', variable = logConfig['save'])
     chkbxLogSave.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxLogSave.config(bd=2)
+
+    chkbxClip = stdChkBxStyle(frameSettings[frIdx],text='Click Line to Copy', variable = logConfig['clipboard'])
+    chkbxClip.grid(row = pos(1,rowPos), column = 0, sticky = W)
+    chkbxClip.config(bd=2)
     
     chkbxDebug = stdChkBxStyle(frameSettings[frIdx],text='Debug Mode', variable = logConfig['debug'])
     chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
@@ -2798,6 +2844,74 @@ def logConfigWindow():
         chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxTest.config(bd=2)
 
+def keyPress(event):
+    print ("pressed", repr(event.char))
+    
+    ignoreKeys = ['\x01','\x08','\r']
+    
+    listbox['background'] = colorScheme['1']
+    listbox['foreground'] = colorScheme['0']
+   
+    searchString = txtLogSearch.get()
+    print (f'{searchString}')
+    (index,count) = logSearchIndex(listbox,searchString)
+    print(f'Index: {index}, Matches:{count}')
+        
+    if count != 0:
+        listbox.see(index[0])
+    
+    
+
+def logSearchNext(lbObj):
+    global indexList
+    currIndex = int(lbObj.index(ACTIVE))
+    
+    if len(indexList) > 0:
+        lbObj.itemconfig(currIndex, background = colorScheme['0'], foreground = colorScheme['1'])
+        indexList.sort()
+        print(f'#Current Index Search: {currIndex}, {indexList},{indexList[:-1][0]}')
+        if currIndex >= indexList[-1]:
+            currIndex = -1
+        
+
+        for item in indexList:
+            if item > currIndex:
+                print (f'#Found next item: {item}')
+                lbObj.see(item)
+                lbObj.activate(item)
+                lbObj.itemconfig(item, background = colorScheme['6'], foreground = colorScheme['0'])
+                break
+        
+        
+    
+    
+def logSearchIndex(lbObj,text):
+    global indexList
+    
+    indexList = []
+    count = 0
+    print(f'Searching for: {text}')
+    listData = lbObj.get(0, "end")
+    print(f'{listData}')
+    for element in listData:
+        itemIdx = listData.index(element)
+        lbObj.itemconfig(itemIdx, background = colorScheme['1'], foreground = colorScheme['0'])
+        if text.lower() in element.lower() and len(text) > 0:
+            count += 1
+            indexList.append(itemIdx)
+            print (f'Index:{itemIdx}')
+            lbObj.activate(itemIdx)
+            lbObj.itemconfig(itemIdx, background = colorScheme['0'], foreground = colorScheme['1'])
+            lbObj.itemconfig(indexList[0], background = colorScheme['6'], foreground = colorScheme['0'])
+    
+    if len(indexList) <= 1:
+        btnLogSearch['state'] = "disabled"
+    else:
+        btnLogSearch['state'] = "normal"
+    return (indexList,count)
+    
+       
+
 def stdChkBxStyle(origin, text = None, image = None, width = 'std', command = None, state = "normal", variable = None):
     
     try:
@@ -2839,6 +2953,30 @@ def stdFontStyle(theme = "", font = 'verdana',size = 8, weight = 'normal'):
     if theme == "title":
         return ("verdana", 9, 'bold')
 
+def stdLabelLinkStyle(origin, text, theme = ""):
+    
+    objLabel = Label(\
+        origin,
+        text = text,
+        bg = colorScheme['1'],
+        fg = "blue",
+        cursor = "hand2",
+        font = stdFontStyle(theme = theme)
+    )
+    
+    return objLabel
+
+def stdFrameSubMenuGrid(origin):
+    origin.grid(
+        row = pos(0,rowPos),
+        rowspan = 15,
+        column = posC(0,colPos),
+        sticky = N+S
+    )
+    
+    origin.grid_columnconfigure(0, weight=1)
+
+
 def stdFrameSubMenuStyle(origin):
     objLabelFrame = LabelFrame(\
         origin,
@@ -2851,6 +2989,8 @@ def stdFrameSubMenuStyle(origin):
         text = ""
         )
     
+    
+    
     objLabel = Label(\
         objLabelFrame,
         text="             A C T I O N S            ",
@@ -2862,6 +3002,33 @@ def stdFrameSubMenuStyle(origin):
     objLabel.grid(row = pos(0,rowPos), column= 0, sticky = N)
 
     return objLabelFrame
+
+def stdButtonActionGrid(btnObj):
+      
+      btnObj.grid(\
+        row = pos(2,rowPos),
+        column = posC(0,colPos),
+        padx = (10,10),
+        sticky = NSEW        
+        )
+
+def stdComboboxStyle(origin, textvariable = None, values = None, postcommand = None):
+    
+    objCombobox = ttk.Combobox(
+        origin,
+        state = "readonly",
+        height = 10,
+        background = colorScheme['4'],
+        foreground = colorScheme['3'],
+        font = stdFontStyle(),
+        image = None,
+        postcommand = postcommand,
+        textvariable = textvariable,
+        values = values        
+    )
+    
+    
+    return objCombobox
     
 def stdButtonMenuStyle(origin, text = None, image = None, width = 'std', command = None, state = "normal", textvariable = None):
     try:
@@ -2895,7 +3062,7 @@ def stdButtonMenuStyle(origin, text = None, image = None, width = 'std', command
     
     return btnObj
     
-def stdEntryStyle(origin, width = 15, show = None ):
+def stdEntryStyle(origin, width = 15, textvariable = None, show = None ):
 
     entryObj = Entry(\
         origin,
@@ -2941,41 +3108,193 @@ def stdLabelFrameStyle(origin, text = None, image = None, width = 100):
     
     return frameObj
     
-def stdButtonStyle(origin, btnTxt = None, btnImg = None, btnWidth = 'std', btnCmd = None, btnState = "normal", btnVar = None):
-    
-    try:
-        if btnWidth == 'std':
-            btnWidth = 100
-    except:
-        None
-        
+def stdButtonStyle(origin, text = None, image = None, width = 30, command = None, state = "normal", textvariable = None):
     btnObj = Button(\
         origin,
-        text= btnTxt,
+        text = text,
         bd = 1,
-        image=btnImg,
+        image = image,
         compound = LEFT,
         padx = 5,
         pady = 5,
-        width=btnWidth,
+        width = width,
         #disabledforeground = colorScheme['5'],
         bg = colorScheme['2'],
         fg = colorScheme['1'],
-        wraplength=140,
+        wraplength = 140,
         highlightcolor = colorScheme['1'],
         activebackground = colorScheme['1'],
         activeforeground = colorScheme['3'],        
         relief = 'raised',
         anchor = 'center',
         font = stdFontStyle(),
-        state = btnState,
+        state = state,
         cursor = 'hand2',
-        textvariable = btnVar,
-        command = btnCmd
+        textvariable = textvariable,
+        command = command
         )
     
     return btnObj
+    
+    
+    
+def onListAPISelect(event):
+    objWidget = event.widget
+    try:
+        idx = int(objWidget.curselection()[0])
+    except:
+        idx = 0
+    value = objWidget.get(idx)
+    print('You selected item {}: {}'.format(idx, value))
+    
+    if value == "<- Back to API Categories":
+        apiListCategory()   
+    elif apiMenu == 'category':
+        apiListCommands(value)
+    else:
+        apiCommandPopulate(value)
+   
+        
 
+def apiCommandPopulate(command):
+    #
+    #
+    
+    '''
+    "List Sub Accounts": {
+            "url": "/accounts",
+            "method": "get",
+            "query_param": {
+                "page_size": 300,
+                "page_number": 1,
+                "next_page_token": "str"
+    '''
+    category = apiCategory
+    menuAPICmdValues(category)
+    etxtAPI.delete(0,END)
+    etxtAPIParam.delete(0,END)
+    etxtAPIBody.delete(0,END)
+    emenuAPICmd.delete(0,END)
+    
+    RESTmethod.set(apiData[category][command]['method']) # initialize
+    if "query_param" in apiData[category][command]:
+        text = json.dumps(apiData[category][command]["query_param"])
+        etxtAPIParam.insert(0,text)
+
+    if "body" in apiData[category][command]:
+        text = json.dumps(apiData[category][command]["body"])
+        etxtAPIBody.insert(0,text)
+        
+    if "url" in apiData[category][command]:
+        text = json.dumps(apiData[category][command]["url"])
+        etxtAPI.insert(0,text)
+        emenuAPICmd.insert(0, text)
+        apiCommand.set(text)
+        #emenuAPICmd.current(emenuAPICmd['values'].index(text))
+        if "{" not in text:
+            eLblApiId.grid_remove()
+            eTxtApiId.grid_remove()
+        else:
+            eLblApiId.grid()
+            eTxtApiId.grid()
+    
+        
+def apiListCategory():
+    global apiMenu
+    
+    apiMenu = "category"
+    apiCommandsList.delete(0,END)
+    for category in apiData:
+        apiCommandsList.insert(0, category)
+        
+    if len(apiData) > 15:
+        sbAPI.grid()
+    else:
+        try:
+            sbAPI.destroy()
+        except:
+            None
+    
+    
+def apiListCommands(category):
+    global apiMenu
+    
+    apiMenu = "commands"
+    emenuAPICat.set(category)
+    apiCommandsList.delete(0,END) 
+    for command in apiData[category]:
+        apiCommandsList.insert(0, command)
+    apiCommandsList.insert(0, "<- Back to API Categories")
+    
+    if len(apiData[category]) > 15:
+        sbAPI.grid()
+    else:
+        try:
+            sbAPI.destroy()
+        except:
+            None
+        
+        
+
+def apiList():
+    apiListVAR = StringVar(frameAPIAction)
+
+    lbAPI = Listbox(\
+        frameAPIAction,
+        setgrid = 1,
+        width = 26,
+        activestyle= 'dotbox',
+        bg= colorScheme['3'],
+        fg= colorScheme['4'],
+        selectbackground= colorScheme['2'],
+        highlightthickness=0,
+        relief = "flat",
+        cursor = "hand2",
+        font = stdFontStyle(),
+        bd = 0,
+        name='apiListVAR'
+        )
+
+    lbAPI.bind('<<ListboxSelect>>',onListAPISelect )
+    lbAPI.grid(\
+        row = pos(3,rowPos),
+        column = posC(0,colPos),
+        padx = 10,
+        #columnspan = colPosMax,
+        sticky = NSEW
+        )
+              
+    sbAPI = Scrollbar(
+        frameAPIAction,
+        relief = "flat",
+        troughcolor = colorScheme['4']        
+        ) 
+    
+    sbAPI.grid(
+        row = 0,
+        column = colPos+1,
+        rowspan=40,
+        sticky = N+S+W
+    )
+    
+    
+    lbAPI.config(yscrollcommand = scrollbar.set)  
+    sbAPI.config(command = lbAPI.yview)
+    
+    apiData = openAPIListDetailed()
+    
+    for category in apiData:
+        lbAPI.insert(0, category)
+    
+    if len(apiData) > 15:
+        sbAPI.grid()
+    else:
+        sbAPI.destroy()
+        
+    apiMenuType = 'category'
+    return (apiData,lbAPI,category,apiMenuType)
+
+    
 rowPos = 0
 colPos = 0
 colPosMax = 12
@@ -3153,7 +3472,7 @@ for fControl in frameControls:
             rowspan = 10,
             column = colPos,
             columnspan = 12,
-            sticky = E
+            sticky = S+E
         )
 
 
@@ -3193,11 +3512,7 @@ frameAccount.append(stdLabelFrameStyle(\
 
 
 
-frameAccount[0].grid(\
-            row = pos(0,rowPos),
-            column = posC(0,colPos),
-            sticky = NSEW
-        )
+stdFrameSubMenuGrid(frameAccount[0])
 
 
 frameAccount[1].grid(\
@@ -3214,21 +3529,18 @@ frameUser = LabelFrame(\
     bg= colorScheme['1'],
     fg= colorScheme['2'],
     bd = 0,
-    text = "User Configuration"
+    text = ""
     )
-frameAPI = LabelFrame(\
-    frameControls[3],
-    padx=5,
-    pady = 5,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
-    bd = 0,
-    text = "Custom API Commands"
-    )
+
 
    
 frameSettings[0].grid(\
         row = pos(0,rowPos), rowspan = 10, column = posC(0,colPos), sticky = NSEW)
+frameControls[0].grid_columnconfigure(0, weight=1)
+frameControls[1].grid_columnconfigure(0, weight=1)
+frameControls[2].grid_columnconfigure(0, weight=1)
+frameControls[3].grid_columnconfigure(0, weight=1)
+
 
 frameSettings[1].grid(\
         row = pos(0,rowPos), column = posC(1,colPos), sticky = N+S+W)
@@ -3321,14 +3633,25 @@ scrollbar.grid(row = rowPos , column = colPosMax+4, rowspan=1,  sticky=N+S+W)
 listbox.config(yscrollcommand = scrollbar.set)  
 scrollbar.config(command = listbox.yview)
 
-btnCancel = Button(frameLog, text="Cancel Action", width=15, command= lambda: cancelActions(True), state=DISABLED)
+btnCancel = stdButtonStyle(frameLog, text="Cancel Action", width=15, command= lambda: cancelActions(True), state=DISABLED)
 
 btnCancel.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 
-btnClearLog = Button(frameLog, text="Clear log", width=15, command=clearLog)
+btnClearLog = stdButtonStyle(frameLog, text="Clear log", width=15, command=clearLog)
 btnClearLog.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-btnLogConfig = Button(frameLog,text='Log Config', command=logConfigWindow)
+searchStr = StringVar()
+
+txtLogSearch = stdEntryStyle(frameLog, textvariable = searchStr)
+txtLogSearch.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+
+btnLogSearch= stdButtonStyle(frameLog,text='Find Next', width = 15, command=lambda: logSearchNext(listbox))
+btnLogSearch.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+txtLogSearch.bind("<Key>", keyPress)
+
+btnLogConfig = stdButtonStyle(frameLog,text='Log Config', command=logConfigWindow)
 btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
 progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
@@ -3344,6 +3667,7 @@ logConfig['noGroup'] = IntVar(value = 1)
 logConfig['save'] = IntVar(value = 1)
 logConfig['debug'] = IntVar()
 logConfig['test'] = IntVar()
+logConfig['clipboard'] = IntVar(value = 1)
 
 logConfigFrame()
 
@@ -3351,14 +3675,13 @@ logConfigFrame()
 
 btnOpenCreds = stdButtonStyle(\
     frameSettings[0],
-    btnTxt = 'Open Credentials File',
-    btnImg = iconFolder,
-    btnCmd = openCredentials
+    text = 'Open Credentials File',
+    image = iconFolder,
+    command = openCredentials
     )
 
 
-btnOpenCreds.grid(\
-    row = pos(2,rowPos), column = posC(0,colPos), padx = (10,10), sticky = NSEW )
+stdButtonActionGrid(btnOpenCreds)
 
 ##@@@@@@@
 eLblAPI = stdLabelStyle(frameSettings1[0], text="Zoom Communication", theme = "title")
@@ -3418,47 +3741,47 @@ btnOpenDeleteText = StringVar()
 btnDeleteInactiveText = StringVar()
 btnSettingsText = StringVar()
 
-btnRetrieve = stdButtonStyle(frameAccount[0], btnTxt="Retrieve All User Data", btnWidth=25, btnCmd=callback)
-btnOpen = stdButtonStyle(frameAccount[0], btnTxt="Open All User Data", btnImg=iconFolder, btnWidth=25, btnCmd=csvOpen)
+btnRetrieve = stdButtonStyle(frameAccount[0], text = "Retrieve All User Data", width = 25, command = callback)
+btnOpen = stdButtonStyle(frameAccount[0], text = "Open All User Data", image = iconFolder, width = 25, command = csvOpen)
 btnOpenDelete = stdButtonStyle(\
     frameAccount[0],
-    btnVar=btnOpenDeleteText,
-    btnImg=iconFolder,
-    btnWidth=25,
-    btnCmd = csvOpenDelete,
-    btnState=DISABLED
+    textvariable = btnOpenDeleteText,
+    image = iconFolder,
+    width = 25,
+    command = csvOpenDelete,
+    state = DISABLED
     )
 
 btnDeleteInactive = stdButtonStyle(\
     frameAccount[0],
-    btnVar = btnDeleteInactiveText,
-    btnWidth = 25,
-    btnCmd = Relicense_Inactive,
-    btnState = DISABLED
+    textvariable = btnDeleteInactiveText,
+    width = 25,
+    command = Relicense_Inactive,
+    state = DISABLED
     )
 
 btnSettingsStats = stdButtonStyle(
     frameAccount[0],
-    btnVar = btnSettingsText,
-    btnWidth = 25,
-    btnCmd = get_users_settings,
-    btnState = DISABLED
+    textvariable = btnSettingsText,
+    width = 25,
+    command = get_users_settings,
+    state = DISABLED
     )
 
 btnRoles = stdButtonStyle(\
     frameAccount[0],
-    btnTxt="List Zoom user roles",
-    btnWidth=25,
-    btnCmd=get_acct_roles
+    text = "List Zoom user roles",
+    width = 25,
+    command = get_acct_roles
 )
 
 
-btnRetrieve.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
-btnOpen.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
-btnOpenDelete.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
-btnDeleteInactive.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
-btnSettingsStats.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
-btnRoles.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
+stdButtonActionGrid(btnRetrieve)
+stdButtonActionGrid(btnOpen)
+stdButtonActionGrid(btnOpenDelete)
+stdButtonActionGrid(btnDeleteInactive)
+stdButtonActionGrid(btnSettingsStats)
+stdButtonActionGrid(btnRoles)
 
 #btnDeleteInvalid = Button(root, text="Delete All Invalid Users", width=30, command=callback, state=DISABLED)
 #btnDeleteInvalid.pack()
@@ -3553,31 +3876,69 @@ etxtProcEmail.grid(row = rowPos, column = posC(1,colPos), sticky = E)
 
 
 
+frameUserFields = []
 
 
-frameUserFields = LabelFrame(frameUser, bg = colorScheme['1'], fg = colorScheme['2'],bd = 0)
-frameUserFields.grid(column = 0, row = pos(1,rowPos), columnspan = int(colPosMax), sticky=NSEW)
+#User Action Options
+frameUserFields.append(stdFrameSubMenuStyle(\
+    frameUser,
+    ))
+
+#User Email Frame
+frameUserFields.append(stdLabelFrameStyle(frameUser))
+
+#User Update Fields with a button to access user settings popup window                           
+frameUserFields.append(stdLabelFrameStyle(frameUser))
+
+
+stdFrameSubMenuGrid(frameUserFields[0])
+
+frameUserFields[1].grid(column = posC(1,colPos), row = pos(0,rowPos), sticky = NSEW)
+frameUserFields[2].grid(column = colPos, row = pos(1,rowPos), sticky = NSEW)
+
+
 tempRow = pos(1,rowPos)
 
-eLblUserEmail = Label(frameUserFields, text="User Email", bg = colorScheme['1'], fg = colorScheme['2'])
-eEmail = Entry(frameUserFields,width=30)
-btnLogOps = Button(frameUserFields, text="Op Log", width=10, command=getOpsLog)
-btnLogSignin = Button(frameUserFields, text="Signing Log", width=10, command=getSigningLog)
+
+
+btnInfo = stdButtonStyle(frameUserFields[0], text="User Info", command=UpdateUser_Info)
+btnUpdateEmail = stdButtonStyle(frameUserFields[0], text="Update User", command=UpdateUser_Email)
+btnLogOps = stdButtonStyle(frameUserFields[0], text="Operations Log", command=getOpsLog)
+btnLogSignin = stdButtonStyle(frameUserFields[0], text="Sign In/Out Log", command=getSigningLog)
+btnLogout = stdButtonStyle(frameUserFields[0], text="Log Out User", command=logoutUser)
+btnUpdateLicensed = stdButtonStyle(frameUserFields[0], text="Set Licensed", command=UpdateUser_Licensed)
+btnUpdateBasic = stdButtonStyle(frameUserFields[0], text="Set Basic", command=UpdateUser_Basic)
+btnUpdateWebinar = stdButtonStyle(frameUserFields[0], text="Toggle Webinar", command=UpdateUser_Webinar)
+btnUpdateLargeMtg = stdButtonStyle(frameUserFields[0], text="Toggle Large Mtg", command=UpdateUser_LargeMtg)
+btnUpdateDelete = stdButtonStyle(frameUserFields[0], text="Delete User", command=UpdateUser_Delete, state=DISABLED)
+
+
+stdButtonActionGrid(btnInfo)
+stdButtonActionGrid(btnUpdateEmail)
+stdButtonActionGrid(btnLogOps)
+stdButtonActionGrid(btnLogSignin)
+stdButtonActionGrid(btnLogout)
+stdButtonActionGrid(btnUpdateLicensed)
+stdButtonActionGrid(btnUpdateBasic)
+stdButtonActionGrid(btnUpdateWebinar)
+stdButtonActionGrid(btnUpdateLargeMtg)
+stdButtonActionGrid(btnUpdateDelete)
 
 
 
-elblUpdateEmail = Label(frameUserFields, text="Updated email")
-etxtUpdateEmail = Entry(frameUserFields, width=30)
-btnUpdateEmail = Button(frameUserFields, text="Update", width=10, command=UpdateUser_Email)
+
+
+eLblUserEmail = Label(frameUserFields[1], text="User Email", bg = colorScheme['1'], fg = colorScheme['2'])
+eEmail = Entry(frameUserFields[1],width=30)
+
+elblUpdateEmail = Label(frameUserFields[2], text="Updated email")
+etxtUpdateEmail = Entry(frameUserFields[2], width=30)
 
 eLblUserEmail.grid(row = pos(0,rowPos), column = 0, sticky=E)
 eEmail.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
-btnLogOps.grid(row = rowPos, column = 2, sticky = W)
-btnLogSignin.grid(row = rowPos, column = 3, sticky = W)
 
 elblUpdateEmail.grid(row = pos(1,rowPos), column = 0, sticky = W)
 etxtUpdateEmail.grid(row = rowPos, column = 1,sticky = NSEW)
-btnUpdateEmail.grid(row = rowPos, column =2, sticky = E)
 
 
 frameUserBtn = LabelFrame(frameUser, bg = colorScheme['1'], fg = colorScheme['2'],bd = 0,)
@@ -3585,35 +3946,35 @@ rowPos = tempRow
 frameUserBtn.grid(column = 0, row = pos(1,rowPos), columnspan = int(colPosMax/3))
 
 
-btnInfo = Button(frameUserBtn, text="Info", width=8, command=UpdateUser_Info)
-btnInfo.grid(row = rowPos, column = colPos + 2)
-
-
-btnLogout = Button(frameUserBtn, text="Log Out", width=8, command=logoutUser)
-btnLogout.grid(row = rowPos, column = colPos + 3)
-
-
-btnUpdateLicensed = Button(frameUserBtn, text="Licensed", width=8, command=UpdateUser_Licensed)
-btnUpdateLicensed.grid(row = rowPos, column = colPos + 4)
-
-btnUpdateBasic = Button(frameUserBtn, text="Basic", width=8, command=UpdateUser_Basic)
-btnUpdateBasic.grid(row = rowPos, column = colPos + 5)
-
-
-btnUpdateWebinar = Button(frameUserBtn, text="Webinar", width=8, command=UpdateUser_Webinar)
-btnUpdateWebinar.grid(row = rowPos, column = colPos + 6)
-
-
-btnUpdateLargeMtg = Button(frameUserBtn, text="Large Mtg", width=8, command=UpdateUser_LargeMtg)
-btnUpdateLargeMtg.grid(row = rowPos, column = colPos + 7)
-
-btnUpdateDelete = Button(frameUserBtn, text="Delete", width=8, command=UpdateUser_Delete, state=DISABLED)
-btnUpdateDelete.grid(row = rowPos, column = colPos + 8)
 
 
 
+# Custom API Control Page Layout
+frameAPI = LabelFrame(\
+    frameControls[3],
+    padx=5,
+    pady = 5,
+    bg= colorScheme['1'],
+    fg= colorScheme['2'],
+    bd = 0,
+    text = "Custom API Commands"
+    )
+
+frameAPIAction = stdFrameSubMenuStyle(
+    frameControls[3],
+)
+
+stdFrameSubMenuGrid(frameAPIAction)
+
+frameAPI.grid(\
+            row = pos(1,rowPos),
+            column = posC(1,colPos),
+            columnspan = 3,
+            sticky = NSEW
+        )
 
 
+(apiData, apiCommandsList,apiCategory, apiMenu) = apiList()
 
 RADIOMODES = [\
         ("POST", "post"),
@@ -3660,11 +4021,11 @@ if apiCategoryList != None:
     apiCommand.set(apiCommandList[0]) # set the default option
 
     eLblAPICat = Label(frameAPI, text="API Category", bg = colorScheme['1'], fg = colorScheme['2'])
-    emenuAPICat = ttk.Combobox(frameAPI, textvariable=apiCategories, values=apiCategoryList)
+    emenuAPICat = stdComboboxStyle(frameAPI, textvariable=apiCategories, values=apiCategoryList)
     resizeFuncAPICat()
     
     eLblAPICmd = Label(frameAPI, text="API Command", bg = colorScheme['1'], fg = colorScheme['2'])
-    emenuAPICmd = ttk.Combobox(frameAPI, textvariable=apiCommand,postcommand=resizeFuncAPICmd, values=apiCommandList)
+    emenuAPICmd = stdComboboxStyle(frameAPI, textvariable=apiCommand,postcommand=resizeFuncAPICmd, values=apiCommandList)
     #etxtAPI.delete(0, END)
     #etxtAPI.insert(0, "/report/operationlogs")
 
@@ -3677,23 +4038,29 @@ if apiCategoryList != None:
     eLblAPICmd.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
     emenuAPICmd.grid(row = rowPos, column = 2, columnspan=4, sticky = W)   
 
+eLblApiId = stdLabelStyle(frameAPI, text="IDs")
+eTxtApiId = stdEntryStyle(frameAPI)
+eTxtApiId.delete(0, END)
 
-elblAPIParam = Label(frameAPI, text="Parameters (JSON)", bg = colorScheme['1'], fg = colorScheme['2'])
-etxtAPIParam = Entry(frameAPI)
+elblAPIParam = stdLabelStyle(frameAPI, text="Parameters (JSON)")
+etxtAPIParam = stdEntryStyle(frameAPI)
 etxtAPIParam.delete(0, END)
 #etxtAPIParam.insert(0, '{"page_size":300}')
 
-elblAPIBody = Label(frameAPI, text="Body (JSON)", bg = colorScheme['1'], fg = colorScheme['2'])
-etxtAPIBody = Entry(frameAPI)
+elblAPIBody = stdLabelStyle(frameAPI, text="Body (JSON)")
+etxtAPIBody = stdEntryStyle(frameAPI)
 
 
-elblAPIURL = Label(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api", fg="blue", cursor="hand2")
+elblAPIURL = stdLabelLinkStyle(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
 elblAPIURL.bind("<Button-1>", lambda e: urlOpen("https://marketplace.zoom.us/docs/api-reference/zoom-api"))
-elblAPI = Label(frameAPI, text="Commmand (URL End)", bg = colorScheme['1'], fg = colorScheme['2'])
-etxtAPI = Entry(frameAPI)
+elblAPI = stdLabelStyle(frameAPI, text="Commmand (URL End)")
+etxtAPI = stdEntryStyle(frameAPI)
     
 elblAPI.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
 etxtAPI.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
+
+eLblApiId.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
+eTxtApiId.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 
 elblAPIParam.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
 etxtAPIParam.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
@@ -3701,9 +4068,9 @@ etxtAPIParam.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 elblAPIBody.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
 etxtAPIBody.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 
-elblAPIURL.grid(row = pos(1,rowPos), column= 0, columnspan=6, sticky = W)
+elblAPIURL.grid(row = pos(1,rowPos), column= 0, columnspan=6, sticky = NSEW)
 
-btnAPIUpdate = Button(frameAPI, text="SEND", width=10, command=customAPI)
+btnAPIUpdate = stdButtonStyle(frameAPI, text="SEND", width=10, command=customAPI)
 btnAPIUpdate.grid(row = 0, rowspan=4, column = 6, sticky = E)
 
 #screenHeight = root.winfo_screenheight() 
