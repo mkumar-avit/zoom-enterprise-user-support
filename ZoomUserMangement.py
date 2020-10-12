@@ -137,7 +137,7 @@ apiURL =\
         'user':'v2/users/@',
         'groups': 'v2/groups',
         'scim2': 'scim2/Users/@',
-        'plan': 'accounts/@/plans/usage',
+        'plan': 'v2/accounts/@/plans/usage',
         'account':'v2/accounts/@',
         'roles':'v2/roles',
         'rolesList':'v2/roles/@/members',
@@ -279,10 +279,10 @@ def timeLocal(utcTimeStr):
 
         # Tell the datetime object that it's in UTC time zone since 
         # datetime objects are 'naive' by default
-        utc = utc.replace(tzinfo=from_zone)
+        utc = utc.replace(tzinfo=FROM_ZONE)
 
         # Convert time zone
-        localTZ = utc.astimezone(to_zone)    
+        localTZ = utc.astimezone(TO_ZONE)    
         localTZ = datetime.datetime.strftime(localTZ, dateStr["12h"])
     except:
         PrintException()
@@ -681,6 +681,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
             logging(f'Send HTTP {rType} REST Request {api}, Response: {response}, Error:{e}')     
         try:
             status = response.status_code
+            statusZoom.set(f"Zoom Resp: {status}")
             try:
                 respData = response.json()
                 print(f'Received HTTP REST Request {respData}')
@@ -703,6 +704,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
             
         except Exception as e:
             PrintException()
+            statusZoom.set(f"No Response")
             logging('Processing HTTP REST Request {} error:{}'.format(api, e))
         
     return respData
@@ -760,26 +762,6 @@ def get_subaccount_data():
         
     logging(f"There are {seats} licenses assigned to subaccounts") 
     return (subAccount,seats)
-
-def getLicenseInfo(desc):
-    planInfo = send_REST_request('plan', 'me')
-    (subAccount, seats) = get_subaccount_data()
-
-    
-    try:
-        planLicenses = planInfo["plan_base"]["hosts"] + seats
-        planUsers = planInfo["plan_base"]["usage"]
-        remainingNow = planLicenses - planUsers
-        remainingPct = round(((remainingNow / planLicenses) * 100),2)
-        
-        returnStr =  f"\nRemaining licenses:  {remainingPct}%, {remainingNow} (out of {planLicenses})"
-            
-        return returnStr
-    except Exception as e:
-        print ("Exception in License info: {}".format(e))
-        return planInfo
-    
-    return ""
 
 def logoutUser():
     global userDB
@@ -1970,7 +1952,7 @@ def get_user_data(groupsDict):
                                 loginDate =  UTCdate.date()
                                 
                                 #print("{} & {}".format(loginDate, DATE_CHECK))
-                                
+                                delta = None
                                 if DATE_CHECK is not None:
                                     try:
                                         
@@ -2180,16 +2162,24 @@ def get_subaccount_data():
     
     return (subAccount,seats)
 
-def getLicenseInfo(desc):
+
+def displayAccountInfo():
+    (cloudUsage,cloudStorage) = getAccountInfo(desc = "Retrieving Account Status...")
+    statusLicense.set(cloudUsage)
+    statusCloud.set(cloudStorage)
+
+def getAccountInfo(desc):
     planInfo = \
         send_REST_request(\
             apiType ='plan',
             data = "me",
             rType = "get",
-            note="",
+            note=desc,
         )
     
-    (subAccount, seats) = get_subaccount_data()
+    #(subAccount, seats) = get_subaccount_data()
+    
+    
 
     
     try:
@@ -2198,14 +2188,17 @@ def getLicenseInfo(desc):
         remainingNow = planLicenses - planUsers
         remainingPct = round(((remainingNow / planLicenses) * 100),2)
         
-        returnStr =  f"\nRemaining licenses:  {remainingPct}%, {remainingNow} (out of {planLicenses})"
-             
-        return returnStr
+        
+        licenseInfo =  f"Licenses: {remainingPct}%, {remainingNow}/{planLicenses})"
+        cloudStorage = planInfo["plan_recording"]["free_storage"]
+        cloudUsage = planInfo["plan_recording"]["free_storage_usage"]
+        cloudInfo = f"Storage: {cloudUsage} / {cloudStorage}"
+        return (licenseInfo,cloudInfo)
     except Exception as e:
         print ("Exception in License info: {}".format(e))
-        return planInfo
+        return (None,None)
     
-    return ""
+    return ("No Cloud Data","No License Data")
     
 def total_licenses():
 
@@ -2425,6 +2418,7 @@ def callback():
     listboxTop()
     #listbox.delete(0,END)
     zoom_token_auth()
+    displayAccountInfo()
     groupsData = get_group_data()
      
     ## Update ComboBox
@@ -2912,14 +2906,8 @@ def logSearchIndex(lbObj,text):
     
        
 
-def stdChkBxStyle(origin, text = None, image = None, width = 'std', command = None, state = "normal", variable = None):
+def stdChkBxStyle(origin, text = None, image = None, width = 30, command = None, state = "normal", variable = None):
     
-    try:
-        if width == 'std':
-            width = 40
-    except:
-        None
-        
     chkbxObj = Checkbutton(\
         origin,
         text = text,
@@ -3079,6 +3067,22 @@ def stdEntryStyle(origin, width = 15, textvariable = None, show = None ):
     )
     
     return entryObj
+
+def stdLabelStatusStyle(origin, text, textvariable, theme = ""):
+    
+    objLabel = Label(\
+        origin,
+        text = text,
+        bg = colorScheme['3'],
+        fg = colorScheme['5'],
+        width = 30,
+        textvariable = textvariable,
+        font = stdFontStyle(theme = theme)
+    )
+    
+    return objLabel
+    
+    
 def stdLabelStyle(origin, text, theme = ""):
     
     objLabel = Label(\
@@ -3302,7 +3306,7 @@ colPosMax = 12
 # Build Primary Window
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
-root.configure(bg=colorScheme["1"])
+root.configure(bg=colorScheme["4"])
 root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.12')
 #root.geometry("90x10")
 root.resizable(height = False, width = False)
@@ -3390,11 +3394,15 @@ for i in range(0,4):
             highlightcolor = colorScheme['3'],
             relief='flat',
             labelanchor = N+W,
+            width=200,
+            height=200,            
             font= ('verdana', 10, 'bold'),
             text = ""
         )
     )
+    frameControls[i].propagate(0)
     
+
 print(f'Length of frameControls: {len(frameControls)}')
 frameLog = LabelFrame(\
     paneApp,
@@ -3418,7 +3426,7 @@ frameStatus = LabelFrame(\
     fg= colorScheme['1'],
     highlightcolor = colorScheme['3'],
     relief='flat',
-    labelanchor = N+E,
+    labelanchor = W,
     font= ('verdana', 10, 'bold'), 
     text = ""
     )
@@ -3452,7 +3460,7 @@ frameStatus.grid(\
         row = 1,
         column = posC(0,colPos),
         columnspan = colPosMax + 2,
-        sticky = NSEW
+        sticky = E
         )
 
 
@@ -3560,6 +3568,7 @@ lblStatusAPI = Label(\
     text = "Zoom Web API Controls"
     #text="Not communicating with Zoom API"
     )
+
 lblStatusAPI.grid(\
     row = pos(0,rowPos),
     column = posC(0,colPos),
@@ -3654,9 +3663,6 @@ txtLogSearch.bind("<Key>", keyPress)
 btnLogConfig = stdButtonStyle(frameLog,text='Log Config', command=logConfigWindow)
 btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
-progress = ttk.Progressbar(frameLog, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
-progress.grid(row = rowPos, column = posC(1,colPos), sticky = E)
 
 
 logConfig = {}
@@ -3676,12 +3682,23 @@ logConfigFrame()
 btnOpenCreds = stdButtonStyle(\
     frameSettings[0],
     text = 'Open Credentials File',
+    width = 20,
     image = iconFolder,
     command = openCredentials
     )
 
 
+btnTestConnection = stdButtonStyle(\
+    frameSettings[0],
+    text = 'Account Info',
+    image = None,
+    width = 20,
+    command = displayAccountInfo
+    )
+
+
 stdButtonActionGrid(btnOpenCreds)
+stdButtonActionGrid(btnTestConnection)
 
 ##@@@@@@@
 eLblAPI = stdLabelStyle(frameSettings1[0], text="Zoom Communication", theme = "title")
@@ -4083,6 +4100,29 @@ btnAPIUpdate.grid(row = 0, rowspan=4, column = 6, sticky = E)
 #    scrollbarApp.grid(row = 0 , column = 7, rowspan=5,  sticky=N+S+W) 
 #    paneApp.config(yscrollcommand = scrollbarApp.set)  
 #    scrollbar.config(command = paneApp.yview)
+
+statusLicense = StringVar(value = "License:  No Data")
+statusCloud = StringVar(value = "Cloud Storage:  No Data")
+statusZoom = StringVar(value = "No Communication")
+
+lblStatus = {
+    'connection':stdLabelStatusStyle(frameStatus, textvariable = statusZoom, text="No Communication"),
+    'license':stdLabelStatusStyle(frameStatus, textvariable = statusLicense, text="Licenses:  No Data"),
+    'cloud':stdLabelStatusStyle(frameStatus, textvariable = statusCloud, text="Cloud Storage:  No Data") 
+    }
+
+colPos = 0
+
+for lbl in lblStatus:
+    lblStatus[lbl].grid(row = 0, column = posC(1,colPos), sticky = W)
+
+progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
+progress = ttk.Progressbar(frameStatus, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
+progress.grid(row = 0, column = posC(1,colPos), sticky = W)
+#ttk.Style.configure("bar.Horizontal.TProgressbar", troughcolor=colorScheme[3], bordercolor=colorScheme[4], background=colorScheme[5], lightcolor=colorScheme[1], darkcolor=colorScheme[0])
+s = ttk.Style()
+s.theme_use('clam')
+s.configure("Horizontal.TProgressbar", troughcolor ='gray', background='green')
 
 
 btnTxtUpdates()
