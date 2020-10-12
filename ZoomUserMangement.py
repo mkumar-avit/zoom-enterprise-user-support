@@ -2622,12 +2622,14 @@ def menuButtons(idx):
     #frameControls[idx].grid_propagate(0)
     
     if idx is 0:
-        frameControls[idx]['text'] = 'S E T T I N G S'
+       None
+       #frameControls[idx]['text'] = 'S E T T I N G S'
         #Original grid settings are at bottom of code
     elif idx is 1:
-        frameControls[idx]['text'] = 'ACCOUNT-LEVEL MANAGEMENT'
+        None
+        #frameControls[idx]['text'] = 'ACCOUNT-LEVEL MANAGEMENT'
     elif idx is 2:
-        frameControls[idx]['text'] = 'USER-LEVEL MANAGEMENT'
+        #frameControls[idx]['text'] = 'USER-LEVEL MANAGEMENT'
         frameUser.grid(\
             row = pos(0,rowPos),
             column = posC(0,colPos),
@@ -2635,7 +2637,8 @@ def menuButtons(idx):
             sticky = NSEW
         )
     elif idx is 3:
-        frameControls[idx]['text'] = 'ZOOM API COMMANDS'
+        None
+        #frameControls[idx]['text'] = 'ZOOM API COMMANDS'
      
     (col,row) = frameAccount[0].grid_size()
     root.update()
@@ -2744,7 +2747,7 @@ def logConfigFrame():
             )
     )  
     
-    (f'{frameSettings}')
+    #(f'{frameSettings}')
     frIdx = len(frameSettings) - 1
     
         
@@ -2807,34 +2810,34 @@ def logConfigWindow():
         logConfigWindow.title('Log Settings')
         logConfigWindow.resizable(height = False, width = False)
         
-        frameConfig = LabelFrame(logConfigWindow, padx = 100, pady = 10, text = "Logging Options", bg = colorScheme['1'], fg = colorScheme['2'])
+        frameConfig = LabelFrame(logConfigWindow, padx = 100, pady = 10, text = "Logging Options", bg = colorScheme['3'], fg = colorScheme['1'])
         frameConfig.grid(row = 0 , column = 0, sticky = W)   
         
         chkbxLogTimeStamp = stdChkBxStyle(frameConfig,text='Timestamp', variable = logConfig['timestamp'])
         chkbxLogTimeStamp.grid(row = pos(0,rowPos) , column = 0, sticky = W)
         chkbxLogTimeStamp.config(bd=2)
         
-        chkbxLogWrap = Checkbutton(frameConfig,text='Wrap Lines', variable = logConfig['wrap'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxLogWrap = stdChkBxStyle(frameConfig,text='Wrap Lines', variable = logConfig['wrap'])
         chkbxLogWrap.grid(row = pos(1,rowPos) , column = 0, sticky = W)
         chkbxLogWrap.config(bd=2)
         
-        chkbxLogInactive = Checkbutton(frameConfig,text='Display Inactive Users', variable = logConfig['inactive'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxLogInactive = stdChkBxStyle(frameConfig,text='Display Inactive Users', variable = logConfig['inactive'])
         chkbxLogInactive.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogInactive.config(bd=2)
         
-        chkbxLogNoGroup = Checkbutton(frameConfig,text='Display Users In No Group', variable = logConfig['noGroup'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxLogNoGroup = stdChkBxStyle(frameConfig,text='Display Users In No Group', variable = logConfig['noGroup'])
         chkbxLogNoGroup.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogNoGroup.config(bd=2)
         
-        chkbxLogSave = Checkbutton(frameConfig,text=f'Save Logs', variable = logConfig['save'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxLogSave = stdChkBxStyle(frameConfig,text=f'Save Logs', variable = logConfig['save'])
         chkbxLogSave.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxLogSave.config(bd=2)
         
-        chkbxDebug = Checkbutton(frameConfig,text='Debug Mode', variable = logConfig['debug'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxDebug = stdChkBxStyle(frameConfig,text='Debug Mode', variable = logConfig['debug'])
         chkbxDebug.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxDebug.config(bd=2)
 
-        chkbxTest = Checkbutton(frameConfig,text='Testing Mode', variable = logConfig['test'], bg = colorScheme['1'], fg = colorScheme['2'])
+        chkbxTest = stdChkBxStyle(frameConfig,text='Testing Mode', variable = logConfig['test'])
         chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
         chkbxTest.config(bd=2)
 
@@ -2906,7 +2909,7 @@ def logSearchIndex(lbObj,text):
     
        
 
-def stdChkBxStyle(origin, text = None, image = None, width = 30, command = None, state = "normal", variable = None):
+def stdChkBxStyle(origin, text = None, image = None, width = 25, command = None, state = "normal", variable = None):
     
     chkbxObj = Checkbutton(\
         origin,
@@ -2918,11 +2921,12 @@ def stdChkBxStyle(origin, text = None, image = None, width = 30, command = None,
         pady = 2,
         width = width,
         #disabledforeground = colorScheme['5'],
-        bg= colorScheme['1'],
-        fg= colorScheme['2'],
+        bg= colorScheme['3'],
+        fg= colorScheme['1'],
+        selectcolor=colorScheme['3'],
         highlightcolor = colorScheme['1'],
-        #activebackground = colorScheme['1'],
-        #activeforeground = colorScheme['3'],        
+        activebackground = colorScheme['3'],
+        activeforeground = colorScheme['1'],        
         relief='flat',
         anchor = W,
         font = ('verdana', 8, 'bold'),
@@ -3088,8 +3092,8 @@ def stdLabelStyle(origin, text, theme = ""):
     objLabel = Label(\
         origin,
         text = text,
-        bg = colorScheme['1'],
-        fg = colorScheme['2'],
+        bg = colorScheme['3'],
+        fg = colorScheme['1'],
         font = stdFontStyle(theme = theme)
     )
     
@@ -3101,8 +3105,8 @@ def stdLabelFrameStyle(origin, text = None, image = None, width = 100):
         origin,
         padx = 5,
         pady = 5,
-        bg= colorScheme['1'],
-        fg= colorScheme['2'],
+        bg= colorScheme['3'],
+        fg= colorScheme['1'],
         bd = 0,
         #relief='raised',
         width = width,
@@ -3306,7 +3310,7 @@ colPosMax = 12
 # Build Primary Window
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
-root.configure(bg=colorScheme["4"])
+root.configure(bg=colorScheme["3"])
 root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.12')
 #root.geometry("90x10")
 root.resizable(height = False, width = False)
@@ -3344,7 +3348,7 @@ style.configure(\
 
 paneApp = PanedWindow(\
     root,
-    bg= colorScheme['1'],
+    bg= colorScheme['3'],
     orient= VERTICAL,
     showhandle = True,
     opaqueresize = True,
@@ -3359,7 +3363,7 @@ paneApp = PanedWindow(\
 
 frameApp = LabelFrame(\
     paneApp,
-    bg= colorScheme['1'],
+    bg= colorScheme['3'],
     text = '',
     relief='flat' 
     )
@@ -3389,8 +3393,8 @@ for i in range(0,4):
     frameControls.append(\
         LabelFrame(\
             frameApp,
-            bg= colorScheme['1'],
-            fg= colorScheme['2'],
+            bg= colorScheme['3'],
+            fg= colorScheme['1'],
             highlightcolor = colorScheme['3'],
             relief='flat',
             labelanchor = N+W,
@@ -3534,8 +3538,8 @@ frameUser = LabelFrame(\
     frameControls[2],
     padx=5,
     pady = 5,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
+    bg= colorScheme['3'],
+    fg= colorScheme['1'],
     bd = 0,
     text = ""
     )
@@ -3594,6 +3598,7 @@ btn = stdButtonMenuStyle(\
 
 btnMenu.append(btn)
 
+
 btn = stdButtonMenuStyle(\
     frameMenu,
     text="User Level",
@@ -3605,6 +3610,14 @@ btnMenu.append(btn)
 btn = stdButtonMenuStyle(\
     frameMenu,
     text="Custom API",
+    command= lambda: menuButtons(3)
+    )
+
+btnMenu.append(btn)
+
+btn = stdButtonMenuStyle(\
+    frameMenu,
+    text="LDAP",
     command= lambda: menuButtons(3)
     )
 
@@ -3649,20 +3662,21 @@ btnCancel.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 btnClearLog = stdButtonStyle(frameLog, text="Clear log", width=15, command=clearLog)
 btnClearLog.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
+
+
+
+btnLogConfig = stdButtonStyle(frameLog,text='Log Config', command=logConfigWindow)
+btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+btnLogSearch= stdButtonStyle(frameLog,text='Find Next', width = 15, command=lambda: logSearchNext(listbox))
+btnLogSearch.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
 searchStr = StringVar()
 
 txtLogSearch = stdEntryStyle(frameLog, textvariable = searchStr)
 txtLogSearch.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
-
-btnLogSearch= stdButtonStyle(frameLog,text='Find Next', width = 15, command=lambda: logSearchNext(listbox))
-btnLogSearch.grid(row = rowPos, column = posC(1,colPos), sticky = W)
-
 txtLogSearch.bind("<Key>", keyPress)
-
-btnLogConfig = stdButtonStyle(frameLog,text='Log Config', command=logConfigWindow)
-btnLogConfig.grid(row = rowPos, column = posC(1,colPos), sticky = W)
-
 
 
 logConfig = {}
@@ -3806,7 +3820,7 @@ stdButtonActionGrid(btnRoles)
 #btnSAMLReorg.pack()
 #btnOpen = Button(root, text="Save Log", width=30, command=logSave)
 #btnOpen.pack()
-elblFilter = Label(frameAccount[1], text= "Limit to   ", bg = colorScheme['1'], fg = colorScheme['2'])
+elblFilter = stdLabelStyle(frameAccount[1], text= "Limit to   ")
 elblFilter.grid(row=rowPos, column = posC(0,colPos), sticky = W)
 
 filterGroup = StringVar()
@@ -3838,7 +3852,7 @@ chkbxActivity = stdChkBxStyle(frameAccount[1],text='Check for user Activity', va
 chkbxActivity.grid(row = pos(1,rowPos) , column = posC(0,colPos), sticky = W)
 chkbxActivity.config(bd=2)
 
-eLbl8 = Label(frameAccount[1], text="No. of months to check for recordings", bg = colorScheme['1'], fg = colorScheme['2'])
+eLbl8 = stdLabelStyle(frameAccount[1], text="No. of months to check for recordings")
 eLbl8.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 eRecMonths = stdEntryStyle(frameAccount[1])
 eRecMonths.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
@@ -3847,7 +3861,7 @@ eRecMonths.insert(0, "6")
 
 
 
-eLblMonthsActive = Label(frameAccount[1], text="Months to be considered still active", bg = colorScheme['1'], fg = colorScheme['2'])
+eLblMonthsActive = stdLabelStyle(frameAccount[1], text="Months to be considered still active")
 eLblMonthsActive.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 eActiveUser = stdEntryStyle(frameAccount[1])
 eActiveUser.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
@@ -3860,7 +3874,7 @@ eActiveUser.insert(0, "0")
 #eMonths.pack()
 
 
-eLblInactive = Label(frameAccount[1], text="Date of last login for an inactive user (mm/dd/yyyy)", bg = colorScheme['1'], fg = colorScheme['2'])
+eLblInactive = stdLabelStyle(frameAccount[1], text="Date of last login for an inactive user (mm/dd/yyyy)")
 eLblInactive.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 
 eDate = stdEntryStyle(frameAccount[1])
@@ -3872,8 +3886,8 @@ frameProcess = LabelFrame(\
     frameAccount[1],
     padx = 0,
     pady = 0,
-    bg = colorScheme['1'],
-    fg = colorScheme['2'],    
+    bg = colorScheme['3'],
+    fg = colorScheme['1'],    
     text = "Restart Processing"
     )
 
@@ -3945,7 +3959,7 @@ stdButtonActionGrid(btnUpdateDelete)
 
 
 
-eLblUserEmail = Label(frameUserFields[1], text="User Email", bg = colorScheme['1'], fg = colorScheme['2'])
+eLblUserEmail = stdLabelStyle(frameUserFields[1], text="User Email")
 eEmail = Entry(frameUserFields[1],width=30)
 
 elblUpdateEmail = Label(frameUserFields[2], text="Updated email")
@@ -3971,8 +3985,8 @@ frameAPI = LabelFrame(\
     frameControls[3],
     padx=5,
     pady = 5,
-    bg= colorScheme['1'],
-    fg= colorScheme['2'],
+    bg= colorScheme['3'],
+    fg= colorScheme['1'],
     bd = 0,
     text = "Custom API Commands"
     )
@@ -4008,7 +4022,7 @@ rowPos = 0
 colPos = 0
 for text, mode in RADIOMODES:
     apiRadioBtn = Radiobutton(frameAPI, text=text,
-                    variable=RESTmethod, value=mode, bg = colorScheme['1'], fg = colorScheme['2'])
+                    variable=RESTmethod, value=mode, bg = colorScheme['3'], fg = colorScheme['1'], selectcolor = colorScheme['3'])
     apiRadioBtn.grid(row = rowPos, column = colPos)
     colPos += 1
 
@@ -4037,11 +4051,11 @@ if apiCategoryList != None:
     apiCommand = StringVar(root)
     apiCommand.set(apiCommandList[0]) # set the default option
 
-    eLblAPICat = Label(frameAPI, text="API Category", bg = colorScheme['1'], fg = colorScheme['2'])
+    eLblAPICat = stdLabelStyle(frameAPI, text="API Category")
     emenuAPICat = stdComboboxStyle(frameAPI, textvariable=apiCategories, values=apiCategoryList)
     resizeFuncAPICat()
     
-    eLblAPICmd = Label(frameAPI, text="API Command", bg = colorScheme['1'], fg = colorScheme['2'])
+    eLblAPICmd = stdLabelStyle(frameAPI, text="API Command")
     emenuAPICmd = stdComboboxStyle(frameAPI, textvariable=apiCommand,postcommand=resizeFuncAPICmd, values=apiCommandList)
     #etxtAPI.delete(0, END)
     #etxtAPI.insert(0, "/report/operationlogs")
