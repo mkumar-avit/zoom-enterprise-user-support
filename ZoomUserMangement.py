@@ -62,7 +62,7 @@ import csv
 import json
 import jwt
 import linecache
-import os
+#import os
 import requests
 import time
 import webbrowser
@@ -105,7 +105,8 @@ colorScheme =\
            '0':'#000000',
            '1':'#FFFFFF',
            '22':'#BFBDBC',
-           '3':'#31353D',
+           '3':'#696969',
+           '33':'#31353D',
            '2':'#403F3F',
            '4':'#FFFDFB',
            '5':'#7F7E7D',
@@ -2658,19 +2659,19 @@ def menuButtons(idx):
         #print(f'G0: {col}, {row}')
         diff = frameControls[idx].winfo_height() - frameControls[0].winfo_height()
     
-        btnSpacer = Button(\
-            frameControls[idx],
-            text = "", 
-            height = diff,
-            bg= colorScheme['1'],
-            fg= colorScheme['1'],
-            highlightcolor = colorScheme['1'],
-            activebackground = colorScheme['1'],
-            activeforeground = colorScheme['1'],
-            relief='flat'            
-        )
+        #btnSpacer = Button(\
+        #    frameControls[idx],
+        #    text = "", 
+        #    height = diff,
+        #    bg= colorScheme['1'],
+        #    fg= colorScheme['1'],
+        #    highlightcolor = colorScheme['1'],
+        #    activebackground = colorScheme['1'],
+        #    activeforeground = colorScheme['1'],
+        #    relief='flat'            
+        #)
         #lbSpacer.resizable(width=False, height=False)
-        btnSpacer.grid()
+        #btnSpacer.grid()
         
         
     
