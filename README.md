@@ -50,6 +50,8 @@ The program will generate multiple files, based on your choice of actions in the
 
 #### Open Credentials file
 (optional) Open a CSV file that contains the API Key, API Secret, Domain, LDAP Host LDAP Login, and LDAP Password.  This is not a recommended method since this is pulling data from a cleartext source.   May investigate alternatives in the future like LastPass integration.
+#### Account Info
+A quick way to test if the API Key and Secret are valid, should pull cloud storage and available license info and populate the status bar with the information.
 
 #### API Key
 API Key pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
