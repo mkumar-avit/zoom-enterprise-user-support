@@ -86,20 +86,31 @@ Checkbox will toggle to allow user deletes (when off), or update user to "Basic"
 #### Check for Upcoming Meetings
 Checkbox will toggle checking if a user has an upcoming scheduled meeting in zoom, and prevent the user from being deleted/updated.   Button text will update in Action buttons that are applicable
 ### Log Window
+
+#### Log window
+This is a list box that contains text of any action the program is performing on Zoom.  The contents will be automatically saved to a log file as it is updated (if that feature is enabled).  Selecting an item in the log window that contains the '@' symbol will populate the user email field below with that value.
+
 #### Cancel Action
 Will end any processing that is happening (i.e. retrieving all user Data, backing user settings,..) that may have long processing times.  Any data pulled to the point that the Cancel Action button was triggered will be saved or processed.
 
 #### Clear Log
 Will clear contents of log window, and if Save File is enabled will start an new timestamped log file.
 
-#### Progress Bar
-Shows progress of any action that has long processing times
+#### Search Textbox
+Enter characters/words to search for in Log list.  Will highlight all matched entries
 
-#### Log window
-This is a list box that contains text of any action the program is performing on Zoom.  The contents will be automatically saved to a log file as it is updated (if that feature is enabled).  Selecting an item in the log window that contains the '@' symbol will populate the user email field below with that value.
+#### Find Next
+Will navigate to the next matching item listed in the Search Textbox.
 
 #### Log config
 This will bring up another window with options for what should be displayed in the log window.
+
+
+### Status Bar
+#### Progress Bar
+Shows progress of any action that has long processing times
+
+
 
 ### User Configuration
 #### User Email
