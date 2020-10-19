@@ -57,8 +57,11 @@ Email Frame:
 
 ## IMPORTS ##
 import datetime
+import pytz
+import tzlocal
 from PIL import Image, ImageTk
 import csv
+import pytz
 import json
 import jwt
 import linecache
@@ -76,7 +79,6 @@ from tkinter import filedialog
 ## GLOBAL CONSTANTS ##
 FROM_ZONE = tz.tzutc()
 TO_ZONE = tz.tzlocal()
-DATE_CHECK = ""
 
 API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
@@ -89,6 +91,8 @@ maxNum = 0
 indexList = []
 cancelAction = False
 fileLog = ""
+localTimeZone = tzlocal.get_localzone().zone
+dateInactiveThreshold = datetime.datetime.now()
 
 colors =\
        {
@@ -123,6 +127,7 @@ dateStr=\
     {
         'log':'%m/%d/%y %H:%M:%S.%f',
         'std':'%m/%d/%Y %H:%M:%S',
+        'user':'%m/%d/%YT%H:%M:%S',
         'file':'%Y-%m-%dT%H-%M-%S',
         '12h':'%m/%d/%Y %I:%M:%S %p %Z',
         'epoch':'%Y-%m-%dT%H:%M:%SZ',
@@ -197,32 +202,36 @@ def logging(text ,save=True):
         text = f'{todayStr}{text}'
      
         if len(text) >= lineLenMax and logConfig['wrap'].get() == 1:
-            if '{' in text:
-                try:
-                    text = text.split("Response:")
-                    text = text[1]
-                except:
-                    None
-                text = text.replace('{', '')
-                text = text.replace('}','')
-                text = text.replace('[','')
-                text = text.replace(']','')
-                text = text.replace("'",'')
-                text = text.replace("_",' ')
-                
-                texthalf = text.split(",")
-                for i in range(len(texthalf) -1, -1, -1):
-                    listbox.insert(0,texthalf[i])
-            else:                
-                #text.replace('{', '{\n')  
-                #if '}' in text:
-                #    text.replace('}', '}\n')
-                
-                textChunk = [text[i:i+lineLenMax] for i in range(0, len(text), lineLenMax)]
-                #print(f' Dated Text {len(textChunk)}:{textChunk}')
-                for i in range(len(textChunk) - 1, -1, -1):
-                    #logData.set(textChunk[i])
-                    listbox.insert(0, textChunk[i])
+            if text is not list():
+                if '{' in text:
+                    try:
+                        text = text.split("Response:")
+                        text = text[1]
+                    except Exception as e:
+                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{text}')
+                    try:
+                        text = text.replace('{', '')
+                        text = text.replace('}','')
+                        text = text.replace('[','')
+                        text = text.replace(']','')
+                        text = text.replace("'",'')
+                        text = text.replace("_",' ')
+                        
+                        texthalf = text.split(",")
+                        for i in range(len(texthalf) -1, -1, -1):
+                            listbox.insert(0,texthalf[i])
+                    except Exception as e:
+                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{text}')
+                else:                
+                    #text.replace('{', '{\n')  
+                    #if '}' in text:
+                    #    text.replace('}', '}\n')
+                    
+                    textChunk = [text[i:i+lineLenMax] for i in range(0, len(text), lineLenMax)]
+                    #print(f' Dated Text {len(textChunk)}:{textChunk}')
+                    for i in range(len(textChunk) - 1, -1, -1):
+                        #logData.set(textChunk[i])
+                        listbox.insert(0, textChunk[i])
         else:
             #logData.set(text)
             listbox.insert(0, text)
@@ -232,7 +241,7 @@ def logging(text ,save=True):
         if save == True and logConfig['save'].get() == 1:
             logSave()
 
-def PrintException():
+def PrintException(error, errMsg = ""):
     """Method meant to display exception error type and message with line number
        and send to logging function if tkinter checkbox debug is enabled  
     Args:  None
@@ -245,7 +254,7 @@ def PrintException():
     filename = f.f_code.co_filename
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
-    msg = f"++Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}"
+    msg = f"++Error: {errMsg}: {error},  Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}"
     if logConfig['debug'].get() == 1:
         logging(msg)
     else:
@@ -267,27 +276,28 @@ def logSave():
             print(f'saving file {fileLog} with: {text}')
     except Exception as e:
         #Do not use logging function here
-        PrintException()
-        print(f'Error saving file {e}')
+        PrintException(e)
 
-def timeLocal(utcTimeStr):
+def timeLocal(utcTimeStr, typeval = "string"):
     
     localTZ = utcTimeStr
     
     try:
         # utc = datetime.utcnow()
         utc = datetime.datetime.strptime(utcTimeStr, dateStr["epoch"])
-
+        
         # Tell the datetime object that it's in UTC time zone since 
         # datetime objects are 'naive' by default
-        utc = utc.replace(tzinfo=FROM_ZONE)
+        utc = pytz.utc.localize(utc)
 
         # Convert time zone
-        localTZ = utc.astimezone(TO_ZONE)    
-        localTZ = datetime.datetime.strftime(localTZ, dateStr["12h"])
-    except:
-        PrintException()
+        localTZ = utc.astimezone(pytz.timezone(localTimeZone))
         
+        if typeval == "string":
+            localTZ = datetime.datetime.strftime(localTZ, dateStr["12h"])
+    except Exception as e:
+        PrintException(e)
+    
     return localTZ
 
 def ldapAttributes():
@@ -496,7 +506,7 @@ def csvOpen():
         logging (f"Open File: {root.filename}")
         fileName = root.filename
     except:
-        PrintException()
+        PrintException(e)
         fileName = USER_DB_FILE
     
  
@@ -538,7 +548,7 @@ def csvOpenDelete():
         logging (f"Open File: {root.filename}")
         fileName = root.filename
     except:
-        PrintException()
+        PrintException(e)
         fileName = EMAIL_FILE
         
     try:
@@ -704,7 +714,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 logging(f'Response: Code:{status} Message:{response.content}')
             
         except Exception as e:
-            PrintException()
+            PrintException(e)
             statusZoom.set(f"No Response")
             logging('Processing HTTP REST Request {} error:{}'.format(api, e))
         
@@ -727,7 +737,7 @@ def get_user_meetings(userID):
         try:
             meetingsAllCnt = meetingsAll['total_records']
         except Exception as e:
-            PrintException()
+            PrintException(e)
             logging(f'!Error getting all meeting count:{e}')
             
     if meetings is not None:
@@ -735,14 +745,14 @@ def get_user_meetings(userID):
             meetingCnt = meetings['total_records']
             
         except Exception as e:
-            PrintException()
+            PrintException(e)
             logging(f'!Error getting meeting count:{e}')        
         try:     
             for record in meetings["meetings"]:
                 if record['type'] == 2 or record['type'] == 8:
                     meetingScheduled += 1
         except Exception as e:
-            PrintException()
+            PrintException(e)
             logging(f'!Error getting meeting data: {e}')
     return (meetingsAllCnt, meetingCnt, meetingScheduled)
 
@@ -767,9 +777,9 @@ def get_subaccount_data():
 def logoutUser():
     global userDB
     
-    userID = get_userID(eEmail.get())
+    userID = get_userID(userEmailAddr.get())
     
-    send_REST_request('logout', data=userID, rType = "delete", note=f"Attempt to Logout {eEmail.get()} from all devices")
+    send_REST_request('logout', data=userID, rType = "delete", note=f"Attempt to Logout {userEmailAddr.get()} from all devices")
     
     
 def set_user_Email(userID, newEmail):
@@ -777,25 +787,25 @@ def set_user_Email(userID, newEmail):
     update = {"email":newEmail}
     
     try:
-        send_REST_request('emailUpdate', data=userID, body=update, rType = "put", note=f"Attempt to Update Zoom acct user {eEmail.get()} to {newEmail}")
+        send_REST_request('emailUpdate', data=userID, body=update, rType = "put", note=f"Attempt to Update Zoom acct user {userEmailAddr.get()} to {newEmail}")
         update_userDB(userID, "Email", newEmail)
     except Exception as e:
-        logging(f"user {eEmail.get()} email update failed.  {e}")
-        PrintException()
+        errMsg = f"user {userEmailAddr.get()} email update failed."
+        PrintException(e, errMsg)
     
 def get_userID(userEmail):
     licNo = 1
     emailIdx = 1
-    userIDIdx = 2
+    userIdIdx = 2
     licenseIdx =  8
     userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
     
-    userEmail = eEmail.get()
+    userEmail = userEmailAddr.get()
 
     try:
         for user in userDB:
             if user[emailIdx] == userEmail:
-                return user[userIDIdx]
+                return user[userIdIdx]
     except:
         None
         
@@ -814,15 +824,15 @@ def update_userDB(userID, category, value):
     global userDB
       
     userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
-    userIDIdx = 2
+    userIdIdx = 2
 
     itemIdx = userDBdef.index(category)
     
     
     
     for user in userDB:
-        if userID in user[userIDIdx]:
-            if category == userDBdef[userIDIdx] and value == None:
+        if userID in user[userIdIdx]:
+            if category == userDBdef[userIdIdx] and value == None:
                 userDB.remove(user)
                 break
             else:
@@ -832,19 +842,112 @@ def update_userDB(userID, category, value):
     
 
 
+def get_UserInfo(user):
+    
+    licNo = 1
+    emailIdx = 1
+    userIdIdx = 2
+    licenseIdx =  8
+    groupIdx = 7
+    
+    print("User Data:  {user}")
+    
+    userId = user[userIdIdx]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive"]
+    
+    userEmail = user[emailIdx]
+    
+    userInfo = send_REST_request('user', data=userId, rType = "get", note="Getting user info")
+                
+    for item in userInfo:
+        try:
+            if item in userTxtData:
+                
+                print (f'###Item: {item}, obj:{userTxtData[item]}, Contents: {userInfo[item]}')    
+                #userDataField[item].set(userInfo[item])
+                if userTxtData[item] is type(StringVar):
+                    userTxtData[item].set(str(userInfo[item]))
+                    userDataField[item].delete(0,"end")
+                    userDataField[item].insert(0, userInfo[item])
+                else:
+                    userTxtData[item].set(userInfo[item])
+                root.update()
+        except Exception as e:
+            PrintException(e,"Error update user fields")
+            
+    userSettings = {}             
+    try:
+        userSettings = get_user_settings(userId, type=2, count = 0)
+       
+        for setting in userSettings['feature']:
+            text = setting
+            if setting is type(str):
+                try:
+                    print(f"Object is string: {setting}")
+                    text = setting.replace("_", " ")
+                except:
+                    text = setting
+                logging(f'{text}: {userSettings["feature"][setting]}')
+            else:
+                logging(f'{text}: {userSettings["feature"][setting]}')
+       
+    except Exception as e:
+        PrintException(e,f"User {userId} Setting can't be retrieved")
+    
+    try:
+        k = ''
+        if user[groupIdx] == 'No Group':
+            group = "AcctSetting"
+        else:
+            groups = user[groupIdx].split(":  ")
+            group = groups[1]
+        
+        if userSettings is not {}:
+            diffCount = 0
+            for category in userSettings:
+                try:
+                    groupVal = groupDB[group][category]
+                    userVal = userSettings[category]
+                    
+                    diffSettings = {k: userVal[k] for k in groupVal if k in userVal and groupVal[k] != userVal[k]}
+                    diffLen = len(diffSettings.keys())         
+                    logging(diffSettings)
+                except:
+                    None
+            logging(f'# of differences to {group} group settings: {diffLen}')
+    except Exception as e:
+        PrintException(e,f"User:{userId}")
+    
+    try:
+        logging(f'Recordings: {check_user_recording_count(userId)}')
+    except Exception as e:
+        logging(f'Recordings in the last {eRecMonths.get()} months: {e}')
+    
+    try:
+        (meetingsAll, meetingsUpcoming, meetingsSched) = get_user_meetings(userId)
+        logging(f'All Time Meeting Total:{meetingsAll}')
+        logging(f'Upcoming Meeting Total:{meetingsUpcoming}')
+        logging(f'Upcoming Scheduled Meetings:{meetingsSched}')
+    except Exception as e:
+        logging(f'Upcoming Meetings {e}')
+    
+    
+    #Last message in log so it shows at the top of the log, and all items below
+    #it would be the contents that are retrieved
+    logging(f'User Info: {userEmail}')
 
 
 def UpdateUser_Delete():
     listboxTop()
     
-    userEmail = eEmail.get()
+    userEmail = userEmailAddr.get()
     userID =  get_userID(userEmail)
     
     delete_user(userID,userEmail)
     
     
 def UpdateUser_Email():
-    email = eEmail.get()
+    email = userEmailAddr.get()
     logging (f"Attempting to update user {email} email's address")
     userID = get_userID(email)
     newEmail = etxtUpdateEmail.get()
@@ -856,77 +959,38 @@ def UpdateUser_Info():
     licType = 'Basic'
     licNo = 1
     emailIdx = 1
-    userIDIdx = 2
+    userIdIdx = 2
     licenseIdx =  8
     groupIdx = 7
     userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive"]
     
-    userEmail = eEmail.get()
+    userEmail = userEmailAddr.get()
+    
+    
+    
+    ## Populate raw dict with full user info
+   
+        
     try:
         for user in userDB:
             if user[emailIdx] == userEmail:
-                print(f"{user}")
+                get_UserInfo(user)
+                
                 for item in user:
                     try:
                         key = userDBdef[user.index(item)]    
                     except Exception as e:
                         key = f"{e}"
-                    
+                        ##@@@@TODO Chek
                     logging(f'{key}: {item}')
-                
-                
-                try:
-                    userSettings = get_user_settings(user[userIDIdx], type=2, count = 0)
-                   
-                    for setting in userSettings['feature']:
-                        text = setting.replace("_", " ")
-                        logging(f'{text}: {userSettings["feature"][setting]}')
-                    
-                   
-                except Exception as e:
-                    logging (f'User settings could not be retrieved:{e}')
-                
-                try:
-                    k = ''
-                    if user[groupIdx] == 'No Group':
-                        group = "AcctSetting"
-                    else:
-                        groups = user[groupIdx].split(":  ")
-                        group = groups[1]
-                        
-                    for category in userSettings:
-                        try:
-                            groupVal = groupDB[group][category]
-                            userVal = userSettings[category]
-                            diffSettings = {k: userVal[k] for k in groupVal if k in userVal and groupVal[k] != userVal[k]}
-                            logging(diffSettings)
-                        except:
-                            None
-                    logging(f'# of differences to group settings: {len(diffSettings)}, {k}')
-                except Exception as e:
-                    logging(f'#Error in group setting comparison: {e}')
-                    PrintException()
-                
-                try:
-                    logging(f'Recordings: {check_user_recording_count(user[2])}')
-                except Exception as e:
-                    logging(f'Recordings in the last {eRecMonths.get()} months: {e}')
-                
-                try:
-                    (meetingsAll, meetingsUpcoming, meetingsSched) = get_user_meetings(user[2])
-                    logging(f'All Time Meeting Total:{meetingsAll}')
-                    logging(f'Upcoming Meeting Total:{meetingsUpcoming}')
-                    logging(f'Upcoming Scheduled Meetings:{meetingsSched}')
-                except Exception as e:
-                    logging(f'Upcoming Meetings {e}')
-                
-                logging(f'User Info: {userEmail}')
+                break
         else:
             if len(userDB) < 1:
                 logging(f'Please retrieve Zoom user\'s data first.')
-                
+       
     except Exception as e:
-        logging(f"No additional info: {e}")
+        PrintException(e)
+        logging(f"Error getting user info: {e}")
         
     listboxTop()
 
@@ -943,7 +1007,7 @@ def updateUser_Feature(feature):
     Returns:  None
     """
     listboxTop()
-    userEmail = eEmail.get()
+    userEmail = userEmailAddr.get()
     userID =  get_userID(userEmail)
     userSetting = get_user_settings(userID, type = 2,  count = 0)
     
@@ -993,15 +1057,15 @@ def UpdateUser_Basic():
     licType = 'Basic'
     licNo = 1
     emailIdx = 1
-    userIDIdx = 2
+    userIdIdx = 2
     licenseIdx =  8
     
     listboxTop()
-    userEmail = eEmail.get()
+    userEmail = userEmailAddr.get()
     for user in userDB:
         if user[emailIdx] == userEmail:
             logging(f'Updating {userEmail} to {licType}')
-            userID = user[userIDIdx]
+            userID = user[userIdIdx]
             userCurrLicense = user[licenseIdx] 
             modify_user_license(userID,userEmail, userCurrLicense, userType=licNo)
             break
@@ -1011,21 +1075,21 @@ def UpdateUser_Licensed():
     licType = 'Licensed'
     licNo = 2
     emailIdx = 1
-    userIDIdx = 2
+    userIdIdx = 2
     licenseIdx =  8
     listboxTop()
-    userEmail = eEmail.get()
+    userEmail = userEmailAddr.get()
     for user in userDB:
         if user[emailIdx] == userEmail:
             logging(f'Updating {userEmail} to {licType}')
-            userID = user[userIDIdx]
+            userID = user[userIdIdx]
             userCurrLicense = user[licenseIdx] 
             modify_user_license(userID,userEmail, userCurrLicense, userType=licNo)
             break            
     
 def xref_UpdateUser(userList):
     emailIdx = 1
-    userIDIdx = 2
+    userIdIdx = 2
     monthsIdx = 6
     groupIdx = 7
     licenseIdx =  8
@@ -1071,7 +1135,7 @@ def xref_UpdateUser(userList):
                         recMonths = 0
                     
                     if months < recMonths:
-                        recordings = check_user_recording_count(user[userIDIdx])
+                        recordings = check_user_recording_count(user[userIdIdx])
                     
                     if recordings > 0:
                         chkParam[1] = True
@@ -1079,7 +1143,7 @@ def xref_UpdateUser(userList):
                     logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
                     
                 if chkMeetings.get() == 1:
-                    (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIDIdx])
+                    (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIdIdx])
                     if meetingScheduled > 0:
                         chkParam[2] = True
                 
@@ -1105,7 +1169,7 @@ def xref_UpdateUser(userList):
                     if True not in chkParam:
                         # No checkboxes, and group matches, just delete
                         if logConfig['test'].get() == 0:
-                            delete_users_list(user[userIDIdx], email)
+                            delete_users_list(user[userIdIdx], email)
                         else:
                             logging(f"TESTING: {email} is being deleted.")
                             
@@ -1115,7 +1179,7 @@ def xref_UpdateUser(userList):
                         chkParam[3] = False
                         if True not in chkParam:
                             if logConfig['test'].get() == 0:
-                                modify_user_license(user[userIDIdx],email, userLicense)
+                                modify_user_license(user[userIdIdx],email, userLicense)
                             else:
                                 logging(f"TESTING:  {email} is being modified to {userLicense}.")
                         else:
@@ -1134,7 +1198,7 @@ def xref_UpdateUser(userList):
 
 def start_modify_user(email):
     emailIdx = 1
-    userIDIdx = 2
+    userIdIdx = 2
     monthsIdx = 6
     groupIdx = 7
     licenseIdx =  8
@@ -1184,7 +1248,7 @@ def start_modify_user(email):
                 except:
                     recMonths = 0
                 
-                recordings = check_user_recording_count(user[userIDIdx])
+                recordings = check_user_recording_count(user[userIdIdx])
                 
                 if recordings > 0:
                     chkParam[1] = True
@@ -1192,7 +1256,7 @@ def start_modify_user(email):
                 logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
                 
             if chkMeetings.get() == 1 and chkParam[4] == False:
-                (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIDIdx])
+                (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIdIdx])
                 if meetingScheduled > 0:
                     chkParam[2] = True
             
@@ -1204,7 +1268,7 @@ def start_modify_user(email):
                 if True not in chkParam:
                     # No checkboxes, and group matches, just delete
                     if logConfig['test'].get() == 0:
-                        delete_user(user[userIDIdx],userEmail)
+                        delete_user(user[userIdIdx],userEmail)
                     else:
                         logging(f"TESTING: {user[groupIdx]},{email} is being deleted.")
                     return 1
@@ -1214,7 +1278,7 @@ def start_modify_user(email):
                     chkParam[3] = False
                     if True not in chkParam:
                         if logConfig['test'].get() == 0:
-                            modify_user_license(user[userIDIdx],email, userLicense)
+                            modify_user_license(user[userIdIdx],email, userLicense)
                         else:
                             logging(f"TEST: {user[groupIdx]}, {email} is being modified to {modifyLicense}.")
                         return 1
@@ -1478,7 +1542,7 @@ def create_user():
     newUser = {\
       "action": "ssoCreate",
       "user_info": {
-        "email": eEmail.get(),
+        "email": userEmailAddr.get(),
         "type": 1,
         "first_name": "",
         "last_name": ""
@@ -1520,14 +1584,13 @@ def proc_user_settings(data, group, email):
                                 }
                              
                         except Exception as e:
-                            PrintException()
-                            print(f'Error in CSV flag data: {e}')
+                            PrintException(e)
                             None
                 except:
-                    PrintException()
+                    PrintException(e)
                     #None
         except:
-            PrintException()
+            PrintException(e)
             #None
 
     return csvRow
@@ -1590,7 +1653,7 @@ def get_users_settings():
                 count += 1
                 bar = int((userDB.index(user)/len(userDB))*100) 
                 progress_var.set(bar)
-                root.update_idletasks()
+                #root.update_idletasks()
                 
                 userID = user[2]
                 email = user[1]
@@ -1631,14 +1694,13 @@ def get_users_settings():
                                                 }
                                             writer.writerow(csvRow)
                                         except Exception as e:
-                                            PrintException()
-                                            print(f'Error in CSV flag data: {e}')
+                                            PrintException(e)
                                             None
-                                except:
-                                    PrintException()
+                                except Exception as e:
+                                    PrintException(e)
                                     #None
-                        except:
-                            PrintException()
+                        except Exception as e:
+                            PrintException(e)
                             #None
 
                 
@@ -1684,14 +1746,13 @@ def save_acct_settings(settingsDB):
                                             }
                                         writer.writerow(csvRow)
                                     except Exception as e:
-                                        PrintException()
-                                        print(f'Error in CSV flag data: {e}')
+                                        PrintException(e)
                                         None
-                            except:
-                                PrintException()
+                            except Exception as e:
+                                PrintException(e)
                                 #None
-                    except:
-                        PrintException()
+                    except Exception as e:
+                        PrintException(e)
                         #None               
     except Exception as e:
         logging (f'Error with creating file: {e}')    
@@ -1720,9 +1781,8 @@ def get_groups_settings(groupData):
         groupSettings = get_group_settings(groupID, count)
         try:
             groupDB[group] = groupSettings
-        except:
-            PrintException()
-            logging(f'###Error:{e}')
+        except Exception as e:
+            PrintException(e)
         
     save_acct_settings(groupDB)   
 
@@ -1744,8 +1804,7 @@ def get_group_settings(groupID, count = 0):
         timeTotal = timeEnd - timeStart
         
     except Exception as e:
-        PrintException()
-        print(f'Error getting Settings: {e}')
+        PrintException(e)
     
     return groupSettings
 
@@ -1769,38 +1828,43 @@ def get_acct_settings():
         timeTotal = timeEnd - timeStart
          
     except Exception as e:
-        PrintException()
-        print(f'Error getting Account Settings: {e}')
+        PrintException(e)
        
     return acctSettings
       
-def get_user_settings(userID, type = 2, count = 0):   
+def get_user_settings(userId, type = 2, count = 0):   
     userSettings = None
     
     try:
         
         timeStart = time.time()
-        if type == 0:
-            userSettings = send_REST_request('settings', data = userID, rType = "get")
-        if type <= 1:
-            userSettings2 = send_REST_request('settings', data = userID, param = {"option":"meeting_authentication"}, rType = "get")
-            userSettings['auth'] = {}
-            userSettings['auth'].update(userSettings2)
-        if type <= 2:
-            userSettings3 = send_REST_request('settings', data = userID, param = {"option":"recording_authentication"}, rType = "get")   
-            userSettings['rec_auth'] = {}
-            userSettings['rec_auth'].update(userSettings3)
+        if type >= 0:
+            userSettings = send_REST_request('settings', data = userId, rType = "get")
+            
+        if type >= 1 and userSettings is not None:
+            userSettings2 = send_REST_request('settings', data = userId, param = {"option":"meeting_authentication"}, rType = "get")
+            try:
+                userSettings['auth'] = {}
+                userSettings['auth'].update(userSettings2)
+            except Exception as e:
+                PrintException(e)
+        if type >= 2 and userSettings is not None:
+            userSettings3 = send_REST_request('settings', data = userId, param = {"option":"recording_authentication"}, rType = "get")   
+            try:
+                userSettings['rec_auth'] = {}
+                userSettings['rec_auth'].update(userSettings3)
+            except Exception as e:
+                PrintException(e)
         
         timeEnd = time.time()            
         timeTotal = timeEnd - timeStart
         btnSettingsText.set(f"Backup User Settings {timeTotal:.2f}s per user/{((timeTotal*(len(userDB)-count))/60):.3f}mins")
         root.update()
     except Exception as e:
-        PrintException()
-        print(f'Error getting Settings: {e}')
+        PrintException(e, "Error in user settings retrieval")
     
     
-    
+    print (f"####User Settings####\n{userSettings}")
     return userSettings
                 
 def get_user_data(groupsDict):
@@ -1811,6 +1875,7 @@ def get_user_data(groupsDict):
     global userRawDB
     global userInactiveDB
     global cancelAction
+    global dateInactiveThreshold
     # get total page count, convert to integer, increment by 1
     total_pages = None
     record_count = 0
@@ -1867,7 +1932,7 @@ def get_user_data(groupsDict):
         endTime = [0,0,0,0,0,0,0,0,0,0]
         user_ids = []
         licenseCnt = {'total':{'Basic':0,'Licensed':0,'On-Prem':0,'None':0},'flagged':{'Basic':0,'Licensed':0,'On-Prem':0,'None':0}}
-        todaysDate = datetime.datetime.now()
+        todaysDate = datetime.datetime.now(pytz.timezone(localTimeZone))
         cancelActions(False)
         try:
             with open(USER_DB_FILE, 'w', newline='') as csvfile:
@@ -1909,14 +1974,18 @@ def get_user_data(groupsDict):
                     try:
                         for user in user_data['users']:
                             record_count += 1
-                            
+                            progress_var.set(int((record_count/recordsTotal)*100))
                             
                             
                             try:
                                 userEmail = user['email']
-                            
+                                
+                                
                                 for record in user:
-                                    userRawDB[userEmail] = {record:user[record]}
+                                    if userEmail not in userRawDB:
+                                        userRawDB[userEmail] = {record:user[record]}
+                                    else:
+                                        userRawDB[userEmail].update({record:user[record]})
                                 
                             
                             except:
@@ -1939,43 +2008,56 @@ def get_user_data(groupsDict):
                                 userLastName = None
                                 
                             try:
+                                userLastLogin = user['last_login_time']
+                            except:
+                                #No valid Login, so creation date should be used.
                                 try:
-                                    userLastLogin = user['last_login_time']
+                                    userLastLogin = user['created_at']
                                 except:
-                                    #No valid Login, so creation date should be used.
-                                    try:
-                                        userLastLogin = user['created_at']
-                                    except:
-                                        userLastLogin = '2015-01-01T00:00:00Z'
+                                    userLastLogin = '2015-01-01T00:00:00Z'
                                 
-                                userLastLogin = timeLocal(userLastLogin)
-                                UTCdate = datetime.datetime.strptime(userLastLogin,'%Y-%m-%dT%H:%M:%SZ')
-                                loginDate =  UTCdate.date()
+                            try:
+                                try:
+                                    userLastLogin = timeLocal(userLastLogin,"object")
+                                    #dateInactiveThreshold =  timeLocal(dateInactiveThreshold,"object")
+                                except Exception as e:
+                                    logging(f'Error TZ: {e}')
+                                    PrintException(e)
+                                #UTCdate = datetime.datetime.strptime(userLastLogin,'%Y-%m-%dT%H:%M:%SZ')
+                                #loginDate =  UTCdate.date()
+                                # Debugging TZ
+                                #logging(f"##Inactivity Check {userEmail}:  {userLastLogin}, ({type(userLastLogin)}) & Inactivity Date:  {dateInactiveThreshold} ({type(userLastLogin)})")
+                                #try:
+                                #    elapsedDays = (userLastLogin - dateInactiveThreshold).days
+                                #    print(f"Days since last online:  {elapsedDays}")
+                                #except Exception as e:
+                                #    print(f'Threshold calc Error {e}')
+                                #    PrintException(e)
                                 
-                                #print("{} & {}".format(loginDate, DATE_CHECK))
                                 delta = None
-                                if DATE_CHECK is not None:
+                                if dateInactiveThreshold is not None:
                                     try:
                                         
-                                        delta =  (DATE_CHECK - loginDate).days
+                                        delta =  (dateInactiveThreshold - userLastLogin).days
+                                        
+                                        # Debugging Date
                                         #logging("Delta date: {}".format(delta))
                                     except Exception as e:
-                                        PrintException()
+                                        PrintException(e)
                                         print('Date Error: {}'.format(e))
                                         
                                         
                                     
-                                elapsedTime = relativedelta(todaysDate,UTCdate)
+                                elapsedTime = relativedelta(todaysDate,userLastLogin)
                                 
                                 userLoginYears = elapsedTime.years 
                                 userLoginMonths = (elapsedTime.years * 12) + elapsedTime.months
                                 
-                                #if userLoginMonths >= maxMonths:
                             except Exception as e:
                                 print ("Error in date-time conversion: {}".format(e))
                             
                             try:
-                                if DATE_CHECK is not None:
+                                if dateInactiveThreshold is not None:
                                     if delta >= 0:
                                         try:
                                             flagUser = ['Inactive','Login']
@@ -1990,7 +2072,7 @@ def get_user_data(groupsDict):
                                         except Exception as e:
                                             logging("Error in flagging: {}".format(e))
                             except Exception as e:
-                                print ('No Valid Last Login Data for{}: {}'.format(userEmail,e))
+                                print ('No Valid Last Login Data for {}: {}'.format(userEmail,e))
                                 flagUser = ['No','Login']
                                 userLastLogin = None
                                 
@@ -2114,9 +2196,9 @@ def get_user_data(groupsDict):
                         runAvg = (endTime[0]-startTime[0]) * (total_pages - page)        
                     
                     #progress.step(int((page/total_pages)*100))
-                    progress_var.set(int((record_count/recordsTotal)*100))
+                    
                     root.update()
-                    #root.update_idletasks()
+                    root.update_idletasks()
                     
                     #print("Time Remaining: {:.2f}s, {}/{} : {}".format(runAvg,page,total_pages,user_ids))
                 # print the contents using zip format.
@@ -2131,8 +2213,15 @@ def get_user_data(groupsDict):
                 
                 logging('User Data Pulled:  {}'.format(len(userDB)))
                 logging('Users Inactive: {}'.format(len(userInactiveDB)))
- 
-                writeRawUserData(userRawDB) 
+                 
+                 
+                 
+                #writeRawUserData(userRawDB) 
+                logging('Updating User drop down list...')
+                for userEmail in userRawDB:
+                    menuUserEmailValuesAdd(userEmail)
+                logging('....Finished updating user drop down list')
+        
         except Exception as e:
             logging ('File Write Error, please close file it may be open in Excel\n{}'.format(e))
             data = None
@@ -2189,8 +2278,7 @@ def getAccountInfo(desc):
         remainingNow = planLicenses - planUsers
         remainingPct = round(((remainingNow / planLicenses) * 100),2)
         
-        
-        licenseInfo =  f"Licenses: {remainingPct}%, {remainingNow}/{planLicenses})"
+        licenseInfo =  f"Licenses: {remainingPct}%, ({remainingNow:,}/{planLicenses:,})"
         cloudStorage = planInfo["plan_recording"]["free_storage"]
         cloudUsage = planInfo["plan_recording"]["free_storage_usage"]
         cloudInfo = f"Storage: {cloudUsage} / {cloudStorage}"
@@ -2245,7 +2333,7 @@ def Relicense_Inactive():
             
 def onListSelect(event):
     global eDomain
-    global eEMail
+    global userEmailAddr
     # Note here that Tkinter passes an event object to onselect()
     objWidget = event.widget
     try:
@@ -2261,10 +2349,19 @@ def onListSelect(event):
         root.clipboard_append(selected)
         
     data = value.split()
+    try:
+        domain = eDomain.get()
+    except:
+        domain = ''
+        
     for item in data:
-        if f'@{eDomain.get()}' in item:
-            eEmail.delete(0,"end")
-            eEmail.insert(0, item)
+        if f'@{domain}' in item:
+            if domain != '':
+                head, sep, tail = item.partition(domain)
+                item = f'{head}{sep}'
+            
+            userEmailAddr.set(item)
+            break
 
 def menuAPICommand(eventObject):
     #logging('Triggered API Command')
@@ -2274,6 +2371,20 @@ def menuAPICommand(eventObject):
     etxtAPI.delete(0, END)
     etxtAPI.insert(0, command)
     emenuAPICmd.configure(width=20)
+
+def menuUserEmailValuesAdd(email):
+    userEmailList.append(email)
+    eComboUserEmail['values'] = userEmailList
+    userEmailAddr.set(userEmailList[-1])
+    
+def menuUserEmailValuesInit():
+    userEmailList.clear()
+    ###@@TODO - user
+    for email in userRawDB[category]:
+        userEmailList.append(cmd)
+        
+    eComboUserEmail['values'] = userEmailList
+    userEmailAddr.set(userEmailList[0])
     
 def menuAPICmdValues(category):
     global apiCommandList
@@ -2292,8 +2403,9 @@ def menuAPICmdValues(category):
 def menuAPICategory(eventObject):
     global apiCommandList
     #logging('Triggered API Category')
+    root.update()
     category = emenuAPICat.get()
-        
+    
     menuAPICmdValues(category)
     
     etxtAPI.delete(0, END)
@@ -2312,10 +2424,10 @@ def testdata():
     
 def getOpsLog():
     listboxTop()
-    userDailyOpLog(eEmail.get())
+    userDailyOpLog(userEmailAddr.get())
 def getSigningLog():
     listboxTop()
-    userDailySignInLog(eEmail.get())
+    userDailySignInLog(userEmailAddr.get())
 
 def userDailyOpLog(userEmail):
     today = datetime.datetime.now()
@@ -2341,11 +2453,11 @@ def userDailyOpLog(userEmail):
                     for item in userLog:
                         text = item.replace("_", " ")
                         if text == 'time':
-                            userLog[item] = timeLocal(userLog[item])
+                            userLog[item] = timeLocal(userLog[item], "string")
                         logging(f"{text}: {userLog[item]}")
         logging(f'Done checking Daily Operation log for: {userEmail}')
     except:
-        PrintException()
+        PrintException(e)
     
 def userDailySignInLog(userEmail):
 
@@ -2369,12 +2481,12 @@ def userDailySignInLog(userEmail):
                     for item in userLog:
                         text = item.replace("_", " ")
                         if text == 'time':
-                            userLog[item] = timeLocal(userLog[item])
+                            userLog[item] = timeLocal(userLog[item], "string")
                         logging(f"{text}: {userLog[item]}")
 
         logging(f'Done checking Daily SignIn/Out log for: {userEmail}')
     except:
-        PrintException()
+        PrintException(e)
 
 def resizeFuncAPICat(): 
     maxWidth = 2
@@ -2439,11 +2551,34 @@ def callback():
     #btn.set(f"Retrieve all users: {((timeTotal*(len(userDB)))/60):.3f}mins")          
     cancelActions('reset')
 
+def get_InactiveDate():
+    global dateInactiveThreshold
+    
+    print('Retrieving inactivity date from form')
+    try:
+        if eDate.get() != '':
+            try:
+                inactiveDate = f'{eDate.get()}T00:00:00'
+                dateInactiveThreshold = datetime.datetime.strptime(inactiveDate, dateStr['user'])
+                dateInactiveThreshold = pytz.utc.localize(dateInactiveThreshold)
+                #dateInactiveThreshold.replace(tzinfo=datetime.timezone.utc)
+                print (f"Date Inactive Threshold:  {dateInactiveThreshold}")
+            except Exception as e:
+                print(f'##Error in Inactive Threshold: {e}')
+                PrintException(e)
+        else:
+            dateInactiveThreshold = None
+    except Exception as e:
+        PrintException(e,"Invalid inactive date")
+        dateCheck = "No Date"
+        
+        
 def zoom_token_auth():
     global maxMonths
     global maxNum
+    global dateInactiveThreshold
  
-    global DATE_CHECK
+    global dateCheck
     
     try:
         maxMonths = int(eMonths.get())
@@ -2455,18 +2590,11 @@ def zoom_token_auth():
     except:
         maxNum = 0
     
-    try:
+    get_InactiveDate()
         
-        if eDate.get() != '':
-            DATE_CHECK = datetime.datetime.strptime(eDate.get(), '%m/%d/%Y').date()
-            print ("{}".format(DATE_CHECK))
-        else:
-            DATE_CHECK = None
-    except Exception as e:
-        logging ("Invalid inactive date")
-        DATE_CHECK = "No Date"
+   
     
-    logging("Inactive Date:  {}".format(DATE_CHECK))
+    logging("Inactive Date:  {}".format(dateInactiveThreshold))
     
 def customAPI():
     """Executes custom API "send" button command and sends
@@ -2616,13 +2744,13 @@ def menuButtons(idx):
         try:
             fControl.grid_remove()
         except Exception as e:
-            PrintException()
+            PrintException(e)
   
     for fControl in frameSubMenuCntrl:
         try:
             fControl.grid_remove()
         except Exception as e:
-            PrintException()
+            PrintException(e)
   
 
   
@@ -2825,7 +2953,32 @@ def logConfigFrame():
     chkbxTest = stdChkBxStyle(frameSettings[frIdx],text='Testing Mode', variable = logConfig['test'])
     chkbxTest.grid(row = pos(1,rowPos), column = 0, sticky = W)
     chkbxTest.config(bd=2)
+    
+def confirmationDialog(title, description, *btns):
+    """Method meant to display secondary popup window that contains
+       options to be pressed
+       
+    Args:  description (string) - Displays text in dialog box
+           btns - multiple strings that contain buttons that should be displayed
+    
+    Returns:  dictionary of string variable to identify what button was pressed
+    """     
+    dialogBox = Toplevel(root)
+    dialogBox.title(title)
+    dialogBox.resizable(height = False, width = False)
         
+    dialogFrame = LabelFrame(dialogBox, padx = 100, pady = 10, bg = colorScheme['3'], fg = colorScheme['1'])
+    dialogFrame.grid(row = 0 , column = 0, sticky = W)   
+    
+    dictStruct = {}
+    
+    for btn in btns:
+        dictStruct[btn] = BooleanVar()
+        button = stdButtonStyle(textvariable = dictStruct[btn], text = btn)
+        button.grid(row = 1, column = col(1,colPos))
+    
+    return dictStruct
+
 def logConfigWindow():
     """Method meant to display secondary popup window that contains
        configuration settings for the log window
@@ -2890,9 +3043,14 @@ def keyPress(event):
     listbox['background'] = colorScheme['1']
     listbox['foreground'] = colorScheme['0']
     
- 
-    searchString = f"{txtLogSearch.get()}{event.char}"
-    
+    if event.char == '\x08':
+        text = txtLogSearch.get()[0:-2]
+        searchString = f"{text}"
+    if event.char not in ignoreKeys:
+        searchString = f"{txtLogSearch.get()}{event.char}"
+    else:
+        #@@To Do to fix backspace
+        searchString = f"{txtLogSearch.get()}"
     print (f'{searchString}')
     (index,count) = logSearchIndex(listbox,searchString)
     print(f'Index: {index}, Matches:{count}')
@@ -2993,7 +3151,7 @@ def stdLabelLinkStyle(origin, text, theme = ""):
     objLabel = Label(\
         origin,
         text = text,
-        bg = colorScheme['1'],
+        bg = colorScheme['3'],
         fg = "blue",
         cursor = "hand2",
         font = stdFontStyle(theme = theme)
@@ -3071,6 +3229,23 @@ def stdComboboxStyle(origin, textvariable = None, values = None, postcommand = N
     
     
     return objCombobox
+def stdComboboxMenuStyle(origin, textvariable = None, values = None, postcommand = None):
+    
+    objCombobox = ttk.Combobox(
+        origin,
+        #state = "readonly",
+        height = 10,
+        background = colorScheme['4'],
+        foreground = colorScheme['2'],
+        font = stdFontStyle(),
+        image = None,
+        postcommand = postcommand,
+        textvariable = textvariable,
+        values = values        
+    )
+    
+    
+    return objCombobox
     
 def stdButtonMenuStyle(origin, text = None, image = None, width = 'std', command = None, state = "normal", textvariable = None):
     try:
@@ -3122,14 +3297,14 @@ def stdEntryStyle(origin, width = 15, textvariable = None, show = None ):
     
     return entryObj
 
-def stdLabelStatusStyle(origin, text, textvariable, theme = ""):
+def stdLabelStatusStyle(origin, text, textvariable, width = 26, theme = ""):
     
     objLabel = Label(\
         origin,
         text = text,
         bg = colorScheme['3'],
         fg = colorScheme['1'],
-        width = 26,
+        width = width,
         textvariable = textvariable,
         font = stdFontStyle(theme = theme)
     )
@@ -3165,7 +3340,16 @@ def stdLabelFrameStyle(origin, text = None, image = None, width = 100):
     )
     
     return frameObj
-    
+
+def stdProgressBarStyle(origin, length = 100, variable = None):
+    s = ttk.Style()
+    s.theme_use('clam')
+    s.configure("red.Horizontal.TProgressbar", foreground='red', background='red')
+    progressBar = ttk.Progressbar(origin, style="red.Horizontal.TProgressbar", variable = variable, orient="horizontal", length=length,mode="determinate")
+    #s.configure("Horizontal.TProgressbar", troughcolor ='gray', background='green')
+    return progressBar
+
+
 def stdButtonStyle(origin, text = None, image = None, width = 30, command = None, state = "normal", textvariable = None):
     btnObj = Button(\
         origin,
@@ -3231,8 +3415,9 @@ def onListAPISelect(event):
         idx = int(objWidget.curselection()[0])
     except:
         idx = 0
+    objWidget.update()
     value = objWidget.get(idx)
-    print('You selected item {}: {}'.format(idx, value))
+    print('You selected item {}: {} in {}'.format(idx, value, apiMenu))
     
     if value == "<- Back to API Categories":
         apiListCategory()   
@@ -3246,16 +3431,6 @@ def onListAPISelect(event):
 def apiCommandPopulate(command):
     #
     #
-    
-    '''
-    "List Sub Accounts": {
-            "url": "/accounts",
-            "method": "get",
-            "query_param": {
-                "page_size": 300,
-                "page_number": 1,
-                "next_page_token": "str"
-    '''
     category = apiCategory
     menuAPICmdValues(category)
     etxtAPI.delete(0,END)
@@ -3400,7 +3575,7 @@ root.resizable(height = 600, width = 1050)
 #    background_label = Label(gui, image=filename)
 #    background_label.place(x=0, y=0, relwidth=1, relheight=1)
 #except Exception as e:
-#    PrintException()
+#    PrintException(e)
 #    print(f'Error {e}')
 #try:
 #    background_image=PhotoImage('.\ZeusT-BG.png')
@@ -3680,7 +3855,7 @@ btnDeleteInactiveText = StringVar()
 btnSettingsText = StringVar()
 
 btnRetrieve = stdButtonStyle(frameSubMenuCntrl[1], text = "Retrieve All User Data", width = 25, command = callback)
-btnOpen = stdButtonStyle(frameSubMenuCntrl[1], text = "Open All User Data", image = iconFolder, width = 25, command = csvOpen)
+btnOpen = stdButtonStyle(frameSubMenuCntrl[1], text = "Open All User Data", image = iconFolder, width = 25, command = csvOpen, state = DISABLED)
 btnOpenDelete = stdButtonStyle(\
     frameSubMenuCntrl[1],
     textvariable = btnOpenDeleteText,
@@ -3706,20 +3881,12 @@ btnSettingsStats = stdButtonStyle(
     state = DISABLED
     )
 
-btnRoles = stdButtonStyle(\
-    frameSubMenuCntrl[1],
-    text = "List Zoom user roles",
-    width = 25,
-    command = get_acct_roles
-)
-
 
 stdButtonActionGrid(btnRetrieve)
 stdButtonActionGrid(btnOpen)
 stdButtonActionGrid(btnOpenDelete)
 stdButtonActionGrid(btnDeleteInactive)
 stdButtonActionGrid(btnSettingsStats)
-stdButtonActionGrid(btnRoles)
 
 
 frameAccount.append(stdLabelFrameStyle(\
@@ -3972,10 +4139,17 @@ btnTestConnection = stdButtonStyle(\
     command = displayAccountInfo
     )
 
+btnRoles = stdButtonStyle(\
+    frameSubMenuCntrl[0],
+    text = "List Zoom user roles",
+    width = 25,
+    command = get_acct_roles
+)
 
 stdButtonActionGrid(btnOpenCreds)
 stdButtonActionGrid(btnTestConnection)
 
+stdButtonActionGrid(btnRoles)
 ##@@@@@@@
 
 #eLbl3 = Label(root, text="Number to Relicense (debug)")
@@ -4007,16 +4181,72 @@ frameUserFields = []
 frameUserFields.append(stdLabelFrameStyle(frameControls[2]))
 frameUserFields[-1].grid(column = posC(0,colPos), row = pos(0,rowPos), sticky = N+W)
 
-eLblUserEmail = stdLabelStyle(frameUserFields[-1], text="User Email")
-eEmail = stdEntryStyle(frameUserFields[-1],width=30)
 
-elblUpdateEmail = stdLabelStyle(frameUserFields[-1], text="Updated email")
-etxtUpdateEmail = stdEntryStyle(frameUserFields[-1], width=30)
-eLblUserEmail.grid(row = pos(0,rowPos), column = 0, sticky=N+E)
-eEmail.grid(row = rowPos, column = 1, columnspan=2, sticky = N+W)
+userLogStart = StringVar()
+userLogEnd = StringVar()
 
-elblUpdateEmail.grid(row = pos(1,rowPos), column = 0, sticky = N+W)
-etxtUpdateEmail.grid(row = rowPos, column = 1,sticky = NSEW)
+userTxtData = {
+    "email":StringVar(),
+    "first_name":StringVar(),
+    "last_name":StringVar(),
+    "pmi":IntVar(),
+    "use_pmi":BooleanVar(),
+    "timezone":StringVar(),
+    "language":StringVar(),
+    "dept":StringVar(),
+    "host_key":StringVar(),
+    "cms_user_id":StringVar(),
+    "job_title":StringVar(),
+    "company":StringVar(),
+    "location":StringVar(),
+    "custom": StringVar()
+    #{
+    #    "key":StringVar(),
+    #    "name":StringVar(),
+    #    "value":StringVar()
+    #}
+}
+
+
+txtUserLogFrame = stdLabelFrameStyle(frameUserFields[-1], text="User Log options (defaults to today and yesterday if blank)")
+txtUserLogFrame.grid(column = 0, row = pos(1,rowPos), sticky = N+W)
+
+eLblUserLogStart = stdLabelStyle(txtUserLogFrame, text="Log Start (mm/dd/yyyy)")
+eTxtUserLogStart = stdEntryStyle(txtUserLogFrame, width=20)
+
+
+eLblUserLogEnd = stdLabelStyle(txtUserLogFrame, text="Log End (mm/dd/yyyy)")
+eTxtUserLogEnd = stdEntryStyle(txtUserLogFrame, width=20)
+
+
+
+
+eLblUserLogStart.grid(row = pos(1,rowPos), column = 0, sticky = E)
+eTxtUserLogStart.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
+eLblUserLogEnd.grid(row = pos(1,rowPos), column = 0, sticky = E)
+eTxtUserLogEnd.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
+
+
+txtUserFrame = stdLabelFrameStyle(frameUserFields[-1], text = "User Configuration - select <Update User> to accept changes")
+txtUserFrame.grid(column = 0, row = pos(1,rowPos), sticky = N+W)
+
+rowPos = 0
+userDataField = {}
+userLabelField = {}
+for userField in userTxtData:
+    fieldName = userField.replace("_"," ")
+    fieldName = fieldName.capitalize()
+    
+    if isinstance(userTxtData[userField],BooleanVar):
+        userDataField[userField] = stdChkBxStyle(txtUserFrame,text= fieldName, variable = userTxtData[userField])
+        userDataField[userField].grid(row = pos(1,rowPos), column = 1, columnspan=2, sticky = W)
+    else:
+        userLabelField[userField] = stdLabelStyle(txtUserFrame, text=fieldName)
+        userLabelField[userField].grid(row = pos(1,rowPos), column = 0, sticky = E)
+        userDataField[userField] = stdEntryStyle(txtUserFrame, textvariable = userTxtData[userField], width=20)
+        userDataField[userField].grid(row = rowPos, column = 1, columnspan=2, sticky = W)
+
+
 
 
 tempRow = pos(1,rowPos)
@@ -4031,8 +4261,21 @@ btnUpdateBasic = stdButtonStyle(frameSubMenuCntrl[2], text="Set Basic", command=
 btnUpdateWebinar = stdButtonStyle(frameSubMenuCntrl[2], text="Toggle Webinar", command=UpdateUser_Webinar)
 btnUpdateLargeMtg = stdButtonStyle(frameSubMenuCntrl[2], text="Toggle Large Mtg", command=UpdateUser_LargeMtg)
 btnUpdateDelete = stdButtonStyle(frameSubMenuCntrl[2], text="Delete User", command=UpdateUser_Delete, state=DISABLED)
+btnXferDelete = stdButtonStyle(frameSubMenuCntrl[2], text="Transfer & Delete", command=UpdateUser_Delete, state=DISABLED)
+btnDeactivate = stdButtonStyle(frameSubMenuCntrl[2], text="Deactivate", command=UpdateUser_Delete, state=DISABLED)
+
+userEmailAddr = StringVar()
+userEmailList = []
+eLblUserEmail = stdLabelStyle(frameSubMenuCntrl[2], text="User Email")
+#eEmail = stdEntryStyle(frameSubMenuCntrl[2],width=30)
+eComboUserEmail = stdComboboxMenuStyle(frameSubMenuCntrl[2], textvariable=userEmailAddr, values=userEmailList)
+#eLblUserEmail.grid(row = pos(0,rowPos), column = 0, sticky=N+E)
+#eEmail.grid(row = rowPos, column = 1, columnspan=2, sticky = N+W)
 
 
+stdButtonActionGrid(eLblUserEmail)
+stdButtonActionGrid(eComboUserEmail)
+#stdButtonActionGrid(eEmail)
 stdButtonActionGrid(btnInfo)
 stdButtonActionGrid(btnUpdateEmail)
 stdButtonActionGrid(btnLogOps)
@@ -4043,7 +4286,8 @@ stdButtonActionGrid(btnUpdateBasic)
 stdButtonActionGrid(btnUpdateWebinar)
 stdButtonActionGrid(btnUpdateLargeMtg)
 stdButtonActionGrid(btnUpdateDelete)
-
+stdButtonActionGrid(btnXferDelete)
+stdButtonActionGrid(btnDeactivate)
 
 
 
@@ -4171,6 +4415,15 @@ elblAPIURL.grid(row = pos(1,rowPos), column= 0, columnspan=6, sticky = NSEW)
 btnAPIUpdate = stdButtonStyle(frameAPI, text="SEND", width=10, command=customAPI)
 btnAPIUpdate.grid(row = 0, rowspan=4, column = 6, sticky = E)
 
+
+frameApiPresets = stdEntryStyle(frameAPI)
+frameApiPresets.grid(row = pos(1,rowPos), columnspan = 6, column= 0,)
+btnApiPresetAdd = stdButtonStyle(frameApiPresets, text="Add Step to Preset", command=customAPI)
+btnApiPresetAdd.grid(row = pos(1,rowPos), rowspan = 2, column = 0, sticky = E)
+btnApiPresetSave = stdButtonStyle(frameApiPresets, text="Save Preset", command=customAPI)
+btnApiPresetSave.grid(row = rowPos, rowspan=2, column = 2, sticky = E)
+
+
 #screenHeight = root.winfo_screenheight() 
 #screenWidth = root.winfo_screenwidth() 
 #windowHeight = root.winfo_height()
@@ -4188,7 +4441,7 @@ statusZoom = StringVar(value = "No Communication")
 
 lblStatus = {
     'connection':stdLabelStatusStyle(frameStatus, textvariable = statusZoom, text="No Communication"),
-    'license':stdLabelStatusStyle(frameStatus, textvariable = statusLicense, text="Licenses:  No Data"),
+    'license':stdLabelStatusStyle(frameStatus, width = 30, textvariable = statusLicense, text="Licenses:  No Data"),
     'cloud':stdLabelStatusStyle(frameStatus, textvariable = statusCloud, text="Cloud Storage:  No Data") 
     }
 
@@ -4198,12 +4451,10 @@ for lbl in lblStatus:
     lblStatus[lbl].grid(row = 0, column = posC(1,colPos), sticky = W)
 
 progress_var = DoubleVar() #here you have ints but when calc. %'s usually floats
-progress = ttk.Progressbar(frameStatus, orient = HORIZONTAL, variable=progress_var, length = 100, mode = 'determinate') 
+progress = stdProgressBarStyle(frameStatus, length = 100, variable = progress_var)
 progress.grid(row = 0, column = posC(1,colPos), sticky = W)
-#ttk.Style.configure("bar.Horizontal.TProgressbar", troughcolor=colorScheme[3], bordercolor=colorScheme[4], background=colorScheme[5], lightcolor=colorScheme[1], darkcolor=colorScheme[0])
-s = ttk.Style()
-s.theme_use('clam')
-s.configure("Horizontal.TProgressbar", troughcolor ='gray', background='green')
+
+
 maxAppHeight = 694
 
 btnTxtUpdates()
@@ -4211,7 +4462,9 @@ btnTxtUpdates()
 menuButtons(0)
 
 
-
+#Testing
+#get_InactiveDate()
+#print(f"Local Time Coversion Check: {timeLocal('2020-06-08T21:59:43Z')}")
 mainloop()
 
 
