@@ -974,10 +974,6 @@ def UpdateUser_Role():
     
     userSetting = get_user_settings(userID, type = 2,  count = 0)
 
-
-    msg = f'{status}, response {response}'
-    logging(msg)
-
     # 2.  Find role Id that was pulled on class init
     if userData['role_name'] in self.roles:
         roleId = self.roles['role_name']
@@ -986,20 +982,20 @@ def UpdateUser_Role():
 
     #3. Set user role to basic member
     #DELETE /roles/{roleId}/members/{memberId}
-    (status, response) = \
-        self.__send_REST_request(\
-            'role',
-            authHeader,
-            type = 'delete',
-            uID = {
-                "userId":userId,
-                "roleId":roleId
-                },
-            param = None,
-            body = None
-        )
+    #response = \
+    #    send_REST_request(\
+    #      data = userID, body = update, rType = "patch")
+    # 'role',
+    #        rType = 'delete',
+    #        data = {
+    #            "userId":userId,
+    #            "roleId":roleId
+    #            },
+    #        param = None,
+    #        body = None
+    #    )
     
-    logging(f'{status} response for attempting removal of {attrib}, {response}')
+    #logging(f'{status} response for attempting removal of {attrib}, {response}')
 
            
     
