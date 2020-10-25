@@ -2,8 +2,14 @@
 To Do to finish app and make a true Zoom Enterprise support app:
 
 Code Cleanup
+Yes, this should have been part of the natural programming workflow, but
+I just sort of started writing code in a time crunch and organically grew the program.
+I was writing code to deal with support issues I had  or concepts that stemmed from
+my primary goal of writing the program to update inactive users to Basic licenses.
+
 -Method comments
 -Add classes
+-PEP8 Cleanup
 
 
 pull color theme from : http://www.colr.org/json/scheme/random via post
@@ -65,7 +71,6 @@ import pytz
 import tzlocal
 from PIL import Image, ImageTk
 import csv
-import pytz
 import json
 import jwt
 import linecache
@@ -92,12 +97,14 @@ SETTINGS_FILE = "Zoom Group Setting Tracking.csv"
 ## GLOBAL VARIABLES ##
 maxMonths = 0
 maxNum = 0
+roles = {}
 indexList = []
 cancelAction = False
 fileLog = ""
+tokenError = True
 localTimeZone = tzlocal.get_localzone().zone
 dateInactiveThreshold = datetime.datetime.now()
-
+leaseTime = 2
 colors =\
        {
            'blue':'#51608C',
@@ -174,7 +181,7 @@ logConfig = {}
 
 ####################################
 
-def logging(text ,save=True):
+def logging(logText ,save=True):
     """Method meant to display text in Tkinter listbox and print data, with a
         timestamp then make a call to save the listbox contents
        
@@ -199,48 +206,48 @@ def logging(text ,save=True):
     except:
         fileLog = f"ZoomAppLog.txt"
             
-    if len(text) > 0:
+    if len(logText) > 0:
         todayStr = ""
         if logConfig['timestamp'].get() == 1:
             todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
-        text = f'{todayStr}{text}'
+        logText = f'{todayStr}{logText}'
      
-        if len(text) >= lineLenMax and logConfig['wrap'].get() == 1:
+        if len(logText) >= lineLenMax and logConfig['wrap'].get() == 1:
             if text is not list():
-                if '{' in text:
+                if '{' in logText:
                     try:
-                        text = text.split("Response:")
-                        text = text[1]
+                        logText = logText.split("Response:")
+                        logText = logText[1]
                     except Exception as e:
-                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{text}')
+                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
                     try:
-                        text = text.replace('{', '')
-                        text = text.replace('}','')
-                        text = text.replace('[','')
-                        text = text.replace(']','')
-                        text = text.replace("'",'')
-                        text = text.replace("_",' ')
+                        logText = logText.replace('{', '')
+                        logText = logText.replace('}','')
+                        logText = logText.replace('[','')
+                        logText = logText.replace(']','')
+                        logText = logText.replace("'",'')
+                        logText = logText.replace("_",' ')
                         
-                        texthalf = text.split(",")
+                        texthalf = logText.split(",")
                         for i in range(len(texthalf) -1, -1, -1):
                             listbox.insert(0,texthalf[i])
                     except Exception as e:
-                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{text}')
+                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
                 else:                
-                    #text.replace('{', '{\n')  
-                    #if '}' in text:
-                    #    text.replace('}', '}\n')
+                    #logText.replace('{', '{\n')  
+                    #if '}' in logText:
+                    #    logText.replace('}', '}\n')
                     
-                    textChunk = [text[i:i+lineLenMax] for i in range(0, len(text), lineLenMax)]
+                    textChunk = [logText[i:i+lineLenMax] for i in range(0, len(logText), lineLenMax)]
                     #print(f' Dated Text {len(textChunk)}:{textChunk}')
                     for i in range(len(textChunk) - 1, -1, -1):
                         #logData.set(textChunk[i])
                         listbox.insert(0, textChunk[i])
         else:
-            #logData.set(text)
-            listbox.insert(0, text)
+            #logData.set(logText)
+            listbox.insert(0, logText)
         
-        print(f"Log:  {text}")
+        print(f"Log:  {logText}")
         root.update()
         if save == True and logConfig['save'].get() == 1:
             logSave()
@@ -258,7 +265,7 @@ def PrintException(error, errMsg = ""):
     filename = f.f_code.co_filename
     linecache.checkcache(filename)
     line = linecache.getline(filename, lineno, f.f_globals)
-    msg = f"++Error: {errMsg}: {error},  Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}"
+    msg = f"++Error: {errMsg}: {error},  Exception in ({filename}, LINE {lineno}, {line.strip()}: {exc_obj}, {exc_type}"
     if logConfig['debug'].get() == 1:
         logging(msg)
     else:
@@ -303,6 +310,33 @@ def timeLocal(utcTimeStr, typeval = "string"):
         PrintException(e)
     
     return localTZ
+    
+def _sub(origData, header, delimiter, values):
+    '''
+    substitues origData string contents between hmatching header and delimiter 
+    with sequential values (replaces importing regular expresssions library)
+ 
+    Args:
+      origData (string): string containing message that has contents to be substituted
+      header (string):  starting character to look for 
+      delimiter (string): end character to look for
+      *values (dictionary): strings that will replace the contents between the header and delimiter
+
+    Returns:
+      (string) updated origData string that has the replaced values
+    '''        
+    data = origData.split(header)
+    newData = data[0]
+    for x in range(0,len(data)):
+        if delimiter in data[x]:
+            varId = data[x].split(delimiter)
+            ##?? add management of uppercase/lowercase mismatch errors??
+            if varId[0] in values:
+                varId[0] = values[varId[0]]
+                for item in varId:
+                    newData = f'{newData}{item}' 
+    return newData
+
 
 def ldapAttributes():
     from ldap3 import Server, Connection
@@ -396,7 +430,7 @@ def JWT_Token2(key,secret, leaseTime = 2):
     authHeader = ""
     
     try:
-        today = datetime.datetime.now()
+        #today = datetime.datetime.now()
         seconds = time.time()
         # Seconds since epoch
 
@@ -456,6 +490,7 @@ def openCredentials():
  
 
 def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames = ""):
+    global cancelAction
     csvData = []
     
     try:
@@ -509,7 +544,7 @@ def csvOpen():
         root.filename = filedialog.askopenfilename(initialdir = "./",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
         logging (f"Open File: {root.filename}")
         fileName = root.filename
-    except:
+    except Exception as e:
         PrintException(e)
         fileName = USER_DB_FILE
     
@@ -540,6 +575,8 @@ def csvOpen():
     cancelActions('reset')
 
 def csvOpenDelete():
+    global cancelAction
+    
     cpUser = []
     rowCount = 0
     progress_var.set(0)
@@ -551,12 +588,12 @@ def csvOpenDelete():
         root.filename = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("csv files","*.csv"),("all files","*.*")))
         logging (f"Open File: {root.filename}")
         fileName = root.filename
-    except:
+    except Exception as e:
         PrintException(e)
         fileName = EMAIL_FILE
         
     try:
-        with open(EMAIL_FILE) as csvfile:
+        with open(fileName) as csvfile:
             readCSV = csv.reader(csvfile, delimiter=',')
             #csvLen = len(readCSV)
             
@@ -606,7 +643,7 @@ def openAPIListDetailed():
     return data
 
 
-def send_REST_request(apiType, data="", body= None, param = None, rType = "get", note=""):
+def send_REST_request(apiType, data="", body= None, param = None, rType = "get", note = None):
     '''
         Description:  Sends request to Zoom to pull more detailed info
                       not available in webhook event payload 
@@ -622,7 +659,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
     
     tokenError = True
     
-    if note != "":
+    if note is not None:
         logging(f'{note}')
     
     
@@ -638,8 +675,8 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
         print (f"API Secret error:{e}")
         API_SECRET = ""
      
-     
-    authHeader = JWT_Token2(API_KEY,API_SECRET,1.5)   
+    
+    authHeader = JWT_Token2(API_KEY,API_SECRET,leaseTime)   
 
     #print(authHeader)    
     
@@ -679,6 +716,8 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                     response = requests.get(url=api, headers=authHeader)
             elif rType == "put":
                 response = requests.put(url=api, json=body, headers=authHeader)
+            elif rType == "post":
+                response = requests.post(url=api, json=body, headers=authHeader)
             elif rType == "patch":
                 response = requests.patch(url=api, json=body, headers=authHeader)
                 logging(f'Response: {response}')
@@ -688,9 +727,9 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 response = requests.delete(url=api, headers=authHeader)
                 status = response.status_code
                 if response.status_code == 204:
-                    msgRsp = "Succesfully deleted"
+                    msgRsp = "Succesfully deleted/removed"
                 else:
-                    msgRsp = "Did not delete"
+                    msgRsp = "Did not delete/remove item"
                 logging(f'{msgRsp} {note}: {response}')
         except Exception as e:
             logging(f'Send HTTP {rType} REST Request {api}, Response: {response}, Error:{e}')     
@@ -760,23 +799,6 @@ def get_user_meetings(userID):
             logging(f'!Error getting meeting data: {e}')
     return (meetingsAllCnt, meetingCnt, meetingScheduled)
 
-def get_subaccount_data():
-    try:
-        subAccount = send_REST_request('subaccount', data='')
-    except Exception as e:
-        logging("Error getting sub account data: {}".format(e))
-        subAccount = None
-    
-    try:
-        seats = 0
-        for data in subAccount['accounts']:
-            if 'seats' in data:
-                seats += data['seats']
-    except:
-        seats = 0
-        
-    logging(f"There are {seats} licenses assigned to subaccounts") 
-    return (subAccount,seats)
 
 def logoutUser():
     global userDB
@@ -811,7 +833,7 @@ def get_userID(userEmail):
             if user[emailIdx] == userEmail:
                 return user[userIdIdx]
     except:
-        None
+        pass
         
     return None
 
@@ -866,7 +888,7 @@ def get_UserInfo(user):
     for item in userInfo:
         try:
             if item in userTxtData:
-                
+                userRoleValue.set(userInfo['role_name'])
                 print (f'###Item: {item}, obj:{userTxtData[item]}, Contents: {userInfo[item]}')    
                 #userDataField[item].set(userInfo[item])
                 if userTxtData[item] is type(StringVar):
@@ -906,7 +928,7 @@ def get_UserInfo(user):
             groups = user[groupIdx].split(":  ")
             group = groups[1]
         
-        if userSettings is not {}:
+        if userSettings != {}:
             diffCount = 0
             for category in userSettings:
                 try:
@@ -917,7 +939,7 @@ def get_UserInfo(user):
                     diffLen = len(diffSettings.keys())         
                     logging(diffSettings)
                 except:
-                    None
+                    pass
             logging(f'# of differences to {group} group settings: {diffLen}')
     except Exception as e:
         PrintException(e,f"User:{userId}")
@@ -957,46 +979,83 @@ def UpdateUser_Email():
     newEmail = etxtUpdateEmail.get()
     set_user_Email(userID, newEmail)
     
-def UpdateUser_Role():
+def deleteUser_Role():
     '''
     Removes a Zoom all user's roles to ensure they can be deprovisoned
     if they are in a deletion-restricted role
 
     Args:
-      self (class): instance of the class
-      authHeader (string): string containing the jwtToken generated by Zoom.
-      userId (string): Unique Zoom User ID
+      None
     Returns:
-      (string) Message stating if update was succesful
+      None
     '''
     userEmail = userEmailAddr.get()
     userID =  get_userID(userEmail)
     
-    userSetting = get_user_settings(userID, type = 2,  count = 0)
+    userInfo = get_user_data(userID)
 
     # 2.  Find role Id that was pulled on class init
-    if userData['role_name'] in self.roles:
-        roleId = self.roles['role_name']
+    print(f'Roles: {roles}')
+    if roles == {}:
+        logging('No roles have been retrieved from settings page')
     else:
-        roleId = None
+        if userInfo['role_name'] in roles:
+            roleId = roles[userInfo['role_name']]
+        else:
+            roleId = None
 
-    #3. Set user role to basic member
-    #DELETE /roles/{roleId}/members/{memberId}
-    #response = \
-    #    send_REST_request(\
-    #      data = userID, body = update, rType = "patch")
-    # 'role',
-    #        rType = 'delete',
-    #        data = {
-    #            "userId":userId,
-    #            "roleId":roleId
-    #            },
-    #        param = None,
-    #        body = None
-    #    )
+        #3. Set user role to basic member
+        response = \
+            send_REST_request(\
+              f'v2/roles/{roleId}/members/{userID}',
+              data = None,
+              body = None,
+              rType = "delete"
+        )
+        
+        logging(f'Response for attempting removal of role:  {response}')
+
+def UpdateUser_Role():
+    '''
+    Updates a Zoom all user's role based on tkinter drop down list values
+
+    Args:
+        None
+    Returns:
+        None
+    '''
+    testRole()
+
+def testRole():
+    userEmail = userEmailAddr.get()
+    userId =  get_userID(userEmail)
     
-    #logging(f'{status} response for attempting removal of {attrib}, {response}')
+    userInfo = get_user_data(userId)
+    userNewRole = txtUserRole.get()
+    # 2.  Find role Id that was pulled on class init    
+    print(f'Roles: {roles}, New Role Proposed: {userNewRole}')
+    if roles == {}:
+        logging('No roles have been retrieved from settings page')
+    else:
+        if userInfo['role_name'] in roles:
+            currentRoleId = roles[userInfo['role_name']]
+        else:
+            currentRoleId = None
 
+
+        roleId = roles[userNewRole]
+        #3. Set user role based on entry field
+        response = \
+            send_REST_request(\
+              f'v2/roles/{roleId}/members',
+              data = None,
+              body = {
+                  "ids":userId,
+                  },
+              rType = "post"
+        )
+        
+        logging(f'Response for attempting update of role:  {response}')
            
     
     
@@ -1042,8 +1101,8 @@ def UpdateUser_Info():
     listboxTop()
 
 def listboxTop():
-   listbox.see(0)
-   root.update()
+    listbox.see(0)
+    root.update()
    
 def updateUser_Feature(feature):
     """Method to toggle user feature setting to opposite value
@@ -1057,9 +1116,7 @@ def updateUser_Feature(feature):
     userEmail = userEmailAddr.get()
     userID =  get_userID(userEmail)
     userSetting = get_user_settings(userID, type = 2,  count = 0)
-    
     state = not userSetting['feature'][feature]
-    
     update = \
            {
                'feature':\
@@ -1201,7 +1258,7 @@ def xref_UpdateUser(userList):
                 group = filterGroup.get()
                 
                 if group == 'All Users':
-                    group == None
+                    group = None
                 elif group == 'Users in no Groups':
                     group = 'No Group'
                     
@@ -1387,7 +1444,7 @@ def get_group_data():
     return groupData
 
 def validate_user_modification(userID):
-    None
+    pass
     
     
 def modify_user_license(userID,userEmail, userCurrLicense, userType=1):
@@ -1492,7 +1549,7 @@ def modify_user_license_scim2(userID,userName, userCurrLicense, userType="Basic"
         try:      
             logging(f"{userName} has {recordings} cloud recordings.")
         except Exception as e:
-            None
+            PrintException(e)
         
         send_REST_request('scim2', data=userID, param = "", rType = "put")
 
@@ -1535,13 +1592,9 @@ def get_user_scim2_data(userID):
     
     return scim2_data
 
-def get_plan_data(token,accountID):
-    
+def get_plan_data(token,accountID):    
     # https://api.zoom.us/v2/accounts/{accountId}/plans/usage
-    None
-
-
-
+    pass
 
     userRec = {}
     print('Validating recordings for: {}'.format(userID))
@@ -1632,13 +1685,10 @@ def proc_user_settings(data, group, email):
                              
                         except Exception as e:
                             PrintException(e)
-                            None
                 except:
                     PrintException(e)
-                    #None
         except:
             PrintException(e)
-            #None
 
     return csvRow
 
@@ -1662,13 +1712,24 @@ def openAPIList():
 
     
 def get_acct_roles():
+    global roles
     data = send_REST_request('roles', data = '', rType = "get")
+    roles = {}
+    
     try:
         for item in data['roles']:
+            try:
+                roles.update({item['name']:item['id']})
+            except Exception as e:
+                PrintException(e)
+                
             logging(f'{item["name"]} role has {item["total_members"]} members')
             logging(f'{item["description"]}')
+        listUserRolesAddAll(roles)
     except Exception as e:
-        logging('Could not retrieve data')
+        PrintException(e,'Could not retrieve role data')
+    
+    
     
 def get_users_settings():
     global progress_var
@@ -1706,7 +1767,7 @@ def get_users_settings():
                 email = user[1]
                 group = user[7]
                 if flagFindUser == 1 and email == startingUser:
-                        flagFindUser = 0
+                    flagFindUser = 0
                 
                 if flagFindUser == 0:
                     logging(f'{count} Retrieving {group}, {email} settings')
@@ -1913,8 +1974,25 @@ def get_user_settings(userId, type = 2, count = 0):
     
     print (f"####User Settings####\n{userSettings}")
     return userSettings
-                
-def get_user_data(groupsDict):
+
+
+def get_user_data(userId):
+
+    user_data = None
+    try:         
+        user_data = send_REST_request('user', data = userId, rType = "get")
+
+        #user_data = requests.get(url=url, headers=authHeader).json()
+        #userInactive = [userID,userLoginMonths, userFirstName, userLastName]
+        
+    except Exception as e:
+        logging('User Data pull error: {}'.format(e))
+        
+    
+    return user_data    
+ 
+    
+def get_users_data(groupsDict):
     global progress_var
     global progress
     global root
@@ -2220,12 +2298,9 @@ def get_user_data(groupsDict):
                                 actionBtnsState('enabled')
                             except:
                                 user_ids = []
-                                
                             
-                        
-
                     except:
-                        None
+                        pass
                         
                     all_entries.extend(user_ids)
                     data = all_entries
@@ -2302,6 +2377,7 @@ def displayAccountInfo():
     (cloudUsage,cloudStorage) = getAccountInfo(desc = "Retrieving Account Status...")
     statusLicense.set(cloudUsage)
     statusCloud.set(cloudStorage)
+    logging("...Finished retrieving account status, data shown in status bar below")
 
 def getAccountInfo(desc):
     planInfo = \
@@ -2481,6 +2557,29 @@ def menuAPICategory(eventObject):
     
     root.update()
 
+
+
+def listUserRolesAddAll(data):
+    global userRoleList
+    global comboUserRoles
+    
+    logging('Updating User roles drop down list...')
+    userRoleList.clear()
+    try:
+        for userRole in data:
+            userRoleList.append(userRole)
+    
+        comboUserRoles['values'] = userRoleList
+        
+        if len(userRoleList) > 0:
+            userRoleValue.set(userRoleList[-1])       
+    except Exception as e:
+        PrintException(e, 'Error updating user role list')
+        
+    logging('....Finished updating user role drop down list')
+        
+
+
 def testdata():
     #Used to validate if recordings is returning appropriate data
     userID = ""
@@ -2491,28 +2590,35 @@ def testdata():
     
 def getOpsLog():
     listboxTop()
-    userDailyOpLog(userEmailAddr.get())
+    
+    userDailyOpLog(
+        userEmailAddr.get(),
+        eTxtUserLogStart.get(),
+        eTxtUserLogEnd.get()
+    )
+    
 def getSigningLog():
     listboxTop()
-    userDailySignInLog(userEmailAddr.get())
-
-def userDailyOpLog(userEmail):
+    userDailySignInLog(
+        userEmailAddr.get(),
+        eTxtUserLogStart.get(),
+        eTxtUserLogEnd.get()
+    )
+def userDailyOpLog(userEmail, dateStart = None, dateEnd = None, nextPage = None):
+    pageCounter = 1
     today = datetime.datetime.now()
     todayStr = f'{datetime.datetime.strftime(today, dateStr["calendar"])}'
     
     params = {\
-        'to':'',
-        'from':'',
+        'to':dateEnd,
+        'from':dateStart,
         'page_size':300,
-        'next_page_token':''
+        'next_page_token':nextPage
         }
     
     logging(f'Checking Daily Operation log for: {userEmail}')
     try:
         opsLogs = send_REST_request('logs', param=params, rType = "get", note = "")
-        if 'next_page_token' in opsLogs:
-            params['next_page_token'] = opsLogs['next_page_token']
-            ##@@ToDo Loop through X pages of ops log, repeat for sign in / out activity log
             
         for userLog in opsLogs["operation_logs"]:
             for item in userLog:
@@ -2522,20 +2628,32 @@ def userDailyOpLog(userEmail):
                         if text == 'time':
                             userLog[item] = timeLocal(userLog[item], "string")
                         logging(f"{text}: {userLog[item]}")
-        logging(f'Done checking Daily Operation log for: {userEmail}')
-    except:
+    except Exception as e:
+        PrintException(e)
+        
+    try:
+        if opsLogs['next_page_token']:
+            logging('Checking next page of operation activity logs...')
+            pageCounter += 1
+            userDailySignInLog(userEmail, dateStart, dateEnd, nextPage = opsLogs['next_page_token'])
+    except Exception as e:
         PrintException(e)
     
-def userDailySignInLog(userEmail):
-
+    if pageCounter > 0:
+        pageCounter = 0
+        logging(f'Done checking Operations log for: {userEmail}')        
+        
+    
+def userDailySignInLog(userEmail, dateStart = None, dateEnd = None, nextPage = None):
+    pageCounter = 1
     today = datetime.datetime.now()
     todayStr = f'{datetime.datetime.strftime(today, dateStr["calendar"])}'
     
     params = {\
-        'to':'',
-        'from':'',
+        'to':dateEnd,
+        'from':dateStart,
         'page_size':300,
-        'next_page_token':''
+        'next_page_token':nextPage
         }
     logging(f'Checking Daily Sign In/Out log for: {userEmail}')
     try:
@@ -2550,10 +2668,20 @@ def userDailySignInLog(userEmail):
                         if text == 'time':
                             userLog[item] = timeLocal(userLog[item], "string")
                         logging(f"{text}: {userLog[item]}")
-
-        logging(f'Done checking Daily SignIn/Out log for: {userEmail}')
-    except:
+    except Exception as e:
         PrintException(e)
+
+    try:
+        if signinLogs['next_page_token']:
+            logging('Checking next page of sign in/out activity logs...')
+            pageCounter += 1
+            userDailySignInLog(userEmail, dateStart, dateEnd, nextPage = signinLogs['next_page_token'])
+    except Exception as e:
+        PrintException(e)
+    if pageCounter > 0:
+        pageCounter = 0
+        logging(f'Done checking Daily SignIn/Out log for: {userEmail}')
+        
 
 def resizeFuncAPICat(): 
     maxWidth = 2
@@ -2600,7 +2728,7 @@ def callback():
     zoom_token_auth()
     displayAccountInfo()
     groupsData = get_group_data()
-     
+    groupFilterList = []
     ## Update ComboBox
     groupFilterList.clear()
     groupFilterList = ['All Users','No Group']
@@ -2612,7 +2740,7 @@ def callback():
     get_groups_settings(groupsData)
             
     #testdata
-    data = get_user_data(groupsData)
+    data = get_users_data(groupsData)
     endTime = time.time()
     timeTotal = endTime - startTime
     #btn.set(f"Retrieve all users: {((timeTotal*(len(userDB)))/60):.3f}mins")          
@@ -2644,8 +2772,6 @@ def zoom_token_auth():
     global maxMonths
     global maxNum
     global dateInactiveThreshold
- 
-    global dateCheck
     
     try:
         maxMonths = int(eMonths.get())
@@ -2659,10 +2785,6 @@ def zoom_token_auth():
     
     get_InactiveDate()
         
-   
-    
-    logging("Inactive Date:  {}".format(dateInactiveThreshold))
-    
 def customAPI():
     """Executes custom API "send" button command and sends
        out the REST API command based on the data defined
@@ -2732,7 +2854,7 @@ def cancelActions(state):
             cancelAction = True
             btnCancel["state"] = "disabled"
     except:
-        None
+        pass
 
     try:
         if state is True: 
@@ -2744,7 +2866,7 @@ def cancelActions(state):
             cancelAction = False
             btnCancel["state"] = "normal"
     except:
-        None
+        pass
 
 def posC(inc, val = None):
     """Increments or resets column position for Tkinter
@@ -2826,14 +2948,14 @@ def menuButtons(idx):
     #frameControls[idx].configure(height=frameControls[0]["height"],width=frameControls[0]["width"])
     #frameControls[idx].grid_propagate(0)
     
-    if idx is 0:
-       None
+    if idx == 0:
+        pass
        #frameControls[idx]['text'] = 'S E T T I N G S'
         #Original grid settings are at bottom of code
-    elif idx is 1:
-        None
+    elif idx == 1:
+        pass
         #frameControls[idx]['text'] = 'ACCOUNT-LEVEL MANAGEMENT'
-    elif idx is 2:
+    elif idx == 2:
         #frameControls[idx]['text'] = 'USER-LEVEL MANAGEMENT'
         frameUser.grid(\
             row = pos(0,rowPos),
@@ -2841,8 +2963,8 @@ def menuButtons(idx):
             columnspan = 3,
             sticky = NSEW
         )
-    elif idx is 3:
-        None
+    elif idx == 3:
+        pass
         #frameControls[idx]['text'] = 'ZOOM API COMMANDS'
      
      
@@ -3272,12 +3394,12 @@ def stdFrameSubMenuStyle(origin, text = None):
 
 def stdButtonActionGrid(btnObj):
       
-      btnObj.grid(\
+    btnObj.grid(\
         row = pos(2,rowPos),
         column = posC(0,colPos),
         padx = (0,10),
         sticky = NSEW        
-        )
+    )
 
 def stdComboboxStyle(origin, textvariable = None, values = None, postcommand = None):
     
@@ -3319,7 +3441,7 @@ def stdButtonMenuStyle(origin, text = None, image = None, width = 'std', command
         if width == 'std':
             width = 18
     except:
-        None
+        pass
         
     btnObj = Button(\
         origin,
@@ -3542,7 +3664,7 @@ def apiListCategory():
         try:
             sbAPI.destroy()
         except:
-            None
+            pass
     
     
 def apiListCommands(category):
@@ -3561,7 +3683,7 @@ def apiListCommands(category):
         try:
             sbAPI.destroy()
         except:
-            None
+            pass
         
         
 
@@ -4278,11 +4400,11 @@ userTxtData = {
 txtUserLogFrame = stdLabelFrameStyle(frameUserFields[-1], text="User Log options (defaults to today and yesterday if blank)")
 txtUserLogFrame.grid(column = 0, row = pos(1,rowPos), sticky = N+W)
 
-eLblUserLogStart = stdLabelStyle(txtUserLogFrame, text="Log Start (mm/dd/yyyy)")
+eLblUserLogStart = stdLabelStyle(txtUserLogFrame, text="Log Start (yyyy-mm-dd)")
 eTxtUserLogStart = stdEntryStyle(txtUserLogFrame, width=20)
 
 
-eLblUserLogEnd = stdLabelStyle(txtUserLogFrame, text="Log End (mm/dd/yyyy)")
+eLblUserLogEnd = stdLabelStyle(txtUserLogFrame, text="Log End (yyyy-mm-dd)")
 eTxtUserLogEnd = stdEntryStyle(txtUserLogFrame, width=20)
 
 
@@ -4297,11 +4419,17 @@ eTxtUserLogEnd.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
 txtUserFrame = stdLabelFrameStyle(frameUserFields[-1], text = "User Configuration - select <Update User> to accept changes")
 txtUserFrame.grid(column = 0, row = pos(1,rowPos), sticky = N+W)
 rowPos = 0
-userRoleUpdate = StringVar()
+
+
+userRoleValue = StringVar()
 lblUserRole = stdLabelStyle(txtUserFrame, text = "User Role")
-txtUserRole = stdEntryStyle(txtUserFrame, textvariable = userRoleUpdate)
+userRoleList = []
+comboUserRoles = stdComboboxMenuStyle(txtUserFrame, textvariable=userRoleValue, values=userRoleList)
+
+
+
 lblUserRole.grid(row = pos(1,rowPos), column = 0, sticky = E)
-txtUserRole.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
+comboUserRoles.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
 
 
 
@@ -4419,6 +4547,7 @@ try:
     apiCategoryList = []
     apiCmdCount = 0
     apiCommandList = []
+    cat = ''
     for cat in apiDict:
         apiCategoryList.append(cat)
         apiCmdCount += len(apiDict[cat])
