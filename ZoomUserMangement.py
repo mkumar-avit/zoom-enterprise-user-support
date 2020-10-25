@@ -70,6 +70,7 @@ import datetime
 import pytz
 import tzlocal
 from PIL import Image, ImageTk
+from io import BytesIO
 import csv
 import json
 import jwt
@@ -2536,12 +2537,15 @@ def menuAPICmdValues(category):
     
     apiCommandList.clear()
     
-    for cmd in apiDict[category]:
-        apiCommandList.append(cmd)
-        
-    emenuAPICmd['values'] = apiCommandList
-    apiCommand.set(apiCommandList[0])
-    emenuAPICmd.configure(width=20)
+    try:
+        for cmd in apiDict[category]:
+            apiCommandList.append(cmd)
+            
+        emenuAPICmd['values'] = apiCommandList
+        apiCommand.set(apiCommandList[0])
+        emenuAPICmd.configure(width=20)
+    except Exception as e:
+        PrintException(e)
     
 def menuAPICategory(eventObject):
     global apiCommandList
@@ -3477,7 +3481,7 @@ def stdEntryStyle(origin, width = 15, textvariable = None, show = None ):
         bg= colorScheme['4'],
         fg= colorScheme['3'],
         font= stdFontStyle(),
-        textvariable = None,
+        textvariable = textvariable,
         state = 'normal',
         relief = 'groove',
         width = width,
@@ -3598,36 +3602,53 @@ def stdButtonActionStyle(origin, text = None, image = None, width = 30, command 
     return btnObj
         
     
-def onListAPISelect(event):
+def onListAPIMenuSelect(event):
+    """Method meant to update onscreen listbox for API commands in  Actions sub-menu frame
+       
+    Args:  event (obj) data passed from tkinter bind event on selecting an item in
+    the sub-menu list
+    
+    Returns:  None
+    """
+    
     objWidget = event.widget
+    
+    #Find the item selected in the list and see
+    # what action is needed
     try:
         idx = int(objWidget.curselection()[0])
     except:
         idx = 0
     objWidget.update()
     value = objWidget.get(idx)
-    print('You selected item {}: {} in {}'.format(idx, value, apiMenu))
+    
+    print('You selected item {}: {}, Menu:  {}'.format(idx, value, apiMenu))
     
     if value == "<- Back to API Categories":
-        apiListCategory()   
+        apiListMenuCategory()   
     elif apiMenu == 'category':
-        apiListCommands(value)
+        apiListMenuCommands(value)
     else:
         apiCommandPopulate(value)
    
         
 
 def apiCommandPopulate(command):
-    #
-    #
-    category = apiCategory
+    global apiMenu
+    
+    category = apiMenu
     menuAPICmdValues(category)
     etxtAPI.delete(0,END)
     etxtAPIParam.delete(0,END)
     etxtAPIBody.delete(0,END)
     emenuAPICmd.delete(0,END)
     
-    RESTmethod.set(apiData[category][command]['method']) # initialize
+    print (f"Category: {category}, Command: {command}, {apiData}")
+    try:
+        RESTmethod.set(apiData[category][command]['method']) # initialize
+    except Exception as e:
+        PrintException(e)
+    
     if "query_param" in apiData[category][command]:
         text = json.dumps(apiData[category][command]["query_param"])
         etxtAPIParam.insert(0,text)
@@ -3650,7 +3671,7 @@ def apiCommandPopulate(command):
             eTxtApiId.grid()
     
         
-def apiListCategory():
+def apiListMenuCategory():
     global apiMenu
     
     apiMenu = "category"
@@ -3667,10 +3688,10 @@ def apiListCategory():
             pass
     
     
-def apiListCommands(category):
+def apiListMenuCommands(category):
     global apiMenu
     
-    apiMenu = "commands"
+    apiMenu = category
     emenuAPICat.set(category)
     apiCommandsList.delete(0,END) 
     for command in apiData[category]:
@@ -3687,8 +3708,10 @@ def apiListCommands(category):
         
         
 
-def apiList(origin):
-    apiListVAR = StringVar(origin)
+def apiListMenu(origin, variable = None):
+    global apiListVar
+    
+    apiListVar = StringVar(origin)
 
     lbAPI = Listbox(\
         origin,
@@ -3703,10 +3726,10 @@ def apiList(origin):
         cursor = "hand2",
         font = stdFontStyle(size = 10, weight = "normal"),
         bd = 0,
-        name='apiListVAR'
+        name='apiListVar'
         )
 
-    lbAPI.bind('<<ListboxSelect>>',onListAPISelect )
+    lbAPI.bind('<<ListboxSelect>>',onListAPIMenuSelect )
     lbAPI.grid(\
         row = pos(3,rowPos),
         column = posC(0,colPos),
@@ -4448,9 +4471,9 @@ for userField in userTxtData:
         userLabelField[userField].grid(row = pos(1,rowPos), column = 0, sticky = E)
         userDataField[userField] = stdEntryStyle(txtUserFrame, textvariable = userTxtData[userField], width=20)
         userDataField[userField].grid(row = rowPos, column = 1, columnspan=2, sticky = W)
-
-
-
+        
+        
+        
 
 tempRow = pos(1,rowPos)
 
@@ -4521,7 +4544,7 @@ frameAPI.grid(\
         )
 
 
-(apiData, apiCommandsList,apiCategory, apiMenu) = apiList(frameSubMenuCntrl[3])
+(apiData, apiCommandsList,apiCategory, apiMenu) = apiListMenu(frameSubMenuCntrl[3])
 
 RADIOMODES = [\
         ("POST", "post"),
@@ -4554,16 +4577,18 @@ try:
 
     for cmd in apiDict[cat]:
         apiCommandList.append(cmd)
-    logging(f"Retrieved {len(apiCategoryList)} API categories and {apiCmdCount} commands") 
+    logging(f"Retrieved {len(apiCategoryList)} API categories and {apiCmdCount} commands")
+    
 except:
     apiCategoryList = None
     apiCommandList = None
 
-
-
+    
 if apiCategoryList != None:
     apiCategories = StringVar(root)
     apiCategories.set(cat) # set the default option
+
+
     
     apiCommand = StringVar(root)
     apiCommand.set(apiCommandList[0]) # set the default option
