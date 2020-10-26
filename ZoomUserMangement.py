@@ -222,16 +222,19 @@ def logging(logText ,save=True):
                     except Exception as e:
                         print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
                     try:
-                        logText = logText.replace('{', '')
-                        logText = logText.replace('}','')
-                        logText = logText.replace('[','')
-                        logText = logText.replace(']','')
-                        logText = logText.replace("'",'')
-                        logText = logText.replace("_",' ')
-                        
-                        texthalf = logText.split(",")
-                        for i in range(len(texthalf) -1, -1, -1):
-                            listbox.insert(0,texthalf[i])
+                        if logText is not list:
+                            logText = logText.replace('{', '')
+                            logText = logText.replace('}','')
+                            logText = logText.replace('[','')
+                            logText = logText.replace(']','')
+                            logText = logText.replace("'",'')
+                            logText = logText.replace("_",' ')
+                    
+                            texthalf = logText.split(",")
+                            for i in range(len(texthalf) -1, -1, -1):
+                                listbox.insert(0,texthalf[i])
+                        else:
+                            listbox.insert(0,f'{logText}')   
                     except Exception as e:
                         print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
                 else:                
@@ -285,7 +288,7 @@ def logSave():
             text = '\n'.join(listbox.get(0, END))
             f.write(text)
             #f.write('\n')
-            print(f'saving file {fileLog} with: {text}')
+            #print(f'saving file {fileLog} with: {text}')
     except Exception as e:
         #Do not use logging function here
         PrintException(e)
@@ -655,6 +658,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
           
     '''
     global tokenError
+    global images
     response = ""
     respData = ""
     
@@ -663,6 +667,18 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
     if note is not None:
         logging(f'{note}')
     
+    if rType == "image":
+        logging (f"###Attempting Image DL: {apiType}")
+        
+        try:
+            response = requests.get(url=apiType, stream=True)
+            response.raw.decode_content = True
+            images.append(response.raw)
+            logging (f"###Response for Image DL: {response.status_code}")
+        except Exception as e:
+            PrintException(e)
+            
+        return images[-1]
     
     try:
         API_KEY = eAPIKey.get()
@@ -825,7 +841,7 @@ def get_userID(userEmail):
     emailIdx = 1
     userIdIdx = 2
     licenseIdx =  8
-    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months", "Picture URL"]
     
     userEmail = userEmailAddr.get()
 
@@ -850,7 +866,7 @@ def delete_user(userID, userEmail=""):
 def update_userDB(userID, category, value):
     global userDB
       
-    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months"]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months", "Picture URL"]
     userIdIdx = 2
 
     itemIdx = userDBdef.index(category)
@@ -880,12 +896,25 @@ def get_UserInfo(user):
     print("User Data:  {user}")
     
     userId = user[userIdIdx]
-    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive"]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive", "Picture URL"]
     
     userEmail = user[emailIdx]
     
+    
+    
+    
     userInfo = send_REST_request('user', data=userId, rType = "get", note="Getting user info")
-                
+    
+    #User Image link
+    if len(user[-1])> 0:
+        picLink.set(user[-1])
+        lblUserPicLink['text'] = 'User Image'
+    else:
+        picLink.set(user[-1])
+        lblUserPicLink['text'] = 'No Image available'
+    root.update()
+    
+    
     for item in userInfo:
         try:
             if item in userTxtData:
@@ -931,6 +960,7 @@ def get_UserInfo(user):
         
         if userSettings != {}:
             diffCount = 0
+            diffLen = 0
             for category in userSettings:
                 try:
                     groupVal = groupDB[group][category]
@@ -962,8 +992,31 @@ def get_UserInfo(user):
     #Last message in log so it shows at the top of the log, and all items below
     #it would be the contents that are retrieved
     logging(f'User Info: {userEmail}')
+    
+    
 
-
+    #try:
+    #    imageURL = user[-1]
+    #    print(f"Image URL: {imageURL}")
+    #    userImage = send_REST_request(
+    #        imageURL,
+    #        rType = "image",
+    #        note="Getting user image"
+    #    )
+    #    print(f"##$$$##Extracting Image Data")
+    #    im = Image.open(io.BytesIO(userImage))
+    #    img = ImageTk.PhotoImage(im)
+    #    print(f"##$$$##Build Picture Window")
+    #    dialogBox = Toplevel(root)
+    ##    dialogBox.title("Image")
+    #    dialogBox.resizable(height = True, width = True)  
+    #    dialogFrame = LabelFrame(dialogBox, padx = 100, pady = 10, bg = colorScheme['3'], fg = colorScheme['1'], image = img)
+    #    dialogFrame.grid(row = 0 , column = 0, sticky = W)        
+     #   imageUserFrame.configure(image=img)
+    #except Exception as e:
+    #    print(f"##$$$##Image Error: {e}")
+    #    PrintException(e)
+        
 def UpdateUser_Delete():
     listboxTop()
     
@@ -1063,13 +1116,9 @@ def testRole():
 def UpdateUser_Info():
     global groupDB
     global userDB
-    licType = 'Basic'
-    licNo = 1
     emailIdx = 1
     userIdIdx = 2
-    licenseIdx =  8
-    groupIdx = 7
-    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive"]
+    userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive", "Picture URL"]
     
     userEmail = userEmailAddr.get()
     
@@ -2049,7 +2098,6 @@ def get_users_data(groupsDict):
         
         # results will be appended to this list
         all_entries = []
-        
         # loop through all pages and return user data
         runAvg = 0
         flagUserCount = 0
@@ -2087,7 +2135,7 @@ def get_users_data(groupsDict):
                     
                     #logging("Pulling: {}".format(JSONData))
                     
-                    try:         
+                    try:
                         user_data = send_REST_request('users', param = JSONData, rType = "get")
                     
                         #user_data = requests.get(url=url, headers=authHeader).json()
@@ -2286,7 +2334,20 @@ def get_users_data(groupsDict):
                                 except:
                                     licenseCnt['flagged'][userLicense] = 1
                                     
-                            writer.writerow({'flag': flagUser[0],'user_id':userID, 'email': userEmail, 'first_name':userFirstName, 'last_name':userLastName, 'last_login':userLastLogin,'months_since':userLoginMonths,'app_ver':userLastClientVer,'group':userGroup,'license':userLicense})
+                            writer.writerow(
+                                {
+                                    'flag': flagUser[0],
+                                    'user_id':userID,
+                                    'email': userEmail,
+                                    'first_name':userFirstName,
+                                    'last_name':userLastName,
+                                    'last_login':userLastLogin,
+                                    'months_since':userLoginMonths,
+                                    'app_ver':userLastClientVer,
+                                    'group':userGroup,
+                                    'license':userLicense
+                                }
+                            )
                             #print ('Last Recorded Zoom version for {}: {}'.format(userEmail,userLastClientVer))
                             flagUser = ['None','None']
                         
@@ -2294,7 +2355,19 @@ def get_users_data(groupsDict):
                                 #
                                 
                             try:
-                                user_ids = [flagUser[0],userEmail, userID, userFirstName, userLastName,userLastLogin,userLastClientVer,userGroup,userLicense, userLoginMonths]
+                                user_ids = [
+                                    flagUser[0],
+                                    userEmail,
+                                    userID,
+                                    userFirstName,
+                                    userLastName,
+                                    userLastLogin,
+                                    userLastClientVer,
+                                    userGroup,
+                                    userLicense,
+                                    userLoginMonths,
+                                    userPicURL
+                                ]
                                 userDB.append(user_ids)
                                 actionBtnsState('enabled')
                             except:
@@ -2836,8 +2909,11 @@ def urlOpen(url):
     Args:  url (str) - url to navigate to
     
     Returns:  None
-    """  
-    webbrowser.open_new(url) 
+    """
+    try:
+        webbrowser.open_new(url)
+    except Exception as e:
+        PrintException(e)
     
 def cancelActions(state):
     """Executes cancel action by changing state of Cancel Action button
@@ -3339,7 +3415,7 @@ def stdFontStyle(theme = "", font = 'verdana',size = 8, weight = 'normal'):
     if theme == "title":
         return ("verdana", 9, 'bold')
 
-def stdLabelLinkStyle(origin, text, theme = ""):
+def stdLabelLinkStyle(origin, text, theme = "", textvariable = None):
     
     objLabel = Label(\
         origin,
@@ -3347,6 +3423,7 @@ def stdLabelLinkStyle(origin, text, theme = ""):
         bg = colorScheme['3'],
         fg = "blue",
         cursor = "hand2",
+        textvariable = None,
         font = stdFontStyle(theme = theme)
     )
     
@@ -3405,6 +3482,7 @@ def stdButtonActionGrid(btnObj):
         sticky = NSEW        
     )
 
+    
 def stdComboboxStyle(origin, textvariable = None, values = None, postcommand = None):
     
     objCombobox = ttk.Combobox(
@@ -3601,6 +3679,46 @@ def stdButtonActionStyle(origin, text = None, image = None, width = 30, command 
     
     return btnObj
         
+def preset_step():
+    '''
+    Planning:
+    JSON Structure
+    
+        "Preset Name":
+            "step number":
+                "name":string,
+                "url":string,
+                "parameters":dict,
+                "body":dict,
+                "ids":dict,
+                
+        A step can include data from previous step
+        (I'm calling it attribute chaining)
+        in the form of JSON dict data, like account id
+        which is populated based on square-plus brackets  [+ +]
+        i.e. id [+account_name+], account name is pulled from
+        previous data
+        
+        adding a step will execute the previous step to
+        get the data generated to generate a list
+        of fields for the user to select one attribute to include in the
+        next step (drop down selection?)
+    '''
+    
+
+def preset_store():
+    '''
+    Planning
+    
+    Storing a preset:
+        1.  Save JSON struct dict to a presets file in local folder
+        2.  A button is generated in the primary Options Menu
+        3.  Selecting the option will have a button that says "start preset" and "save preset" in actions menu
+        4.  Control Frame will list in a large, scrollable text box the
+            JSON dict that can be editted (dict to JSON string)
+    '''
+    pass
+    
     
 def onListAPIMenuSelect(event):
     """Method meant to update onscreen listbox for API commands in  Actions sub-menu frame
@@ -3624,19 +3742,15 @@ def onListAPIMenuSelect(event):
     
     print('You selected item {}: {}, Menu:  {}'.format(idx, value, apiMenu))
     
-    if value == "<- Back to API Categories":
+    if value == "<< Back to API Categories":
         apiListMenuCategory()   
     elif apiMenu == 'category':
         apiListMenuCommands(value)
     else:
-        apiCommandPopulate(value)
-   
-        
+        apiCommandPopulate(apiMenu, value)
 
-def apiCommandPopulate(command):
-    global apiMenu
-    
-    category = apiMenu
+def apiCommandPopulate(category, command):
+
     menuAPICmdValues(category)
     etxtAPI.delete(0,END)
     etxtAPIParam.delete(0,END)
@@ -3644,24 +3758,40 @@ def apiCommandPopulate(command):
     emenuAPICmd.delete(0,END)
     
     print (f"Category: {category}, Command: {command}, {apiData}")
+    
+    # Set radio button to match command's REST method
     try:
         RESTmethod.set(apiData[category][command]['method']) # initialize
     except Exception as e:
         PrintException(e)
     
+    # Update query parameter sample to display in appropriate entry field
     if "query_param" in apiData[category][command]:
         text = json.dumps(apiData[category][command]["query_param"])
+        text = apiData[category][command]["query_param"]
         etxtAPIParam.insert(0,text)
-
+    
+    #update body contents sample to display in appropriate entry field
     if "body" in apiData[category][command]:
-        text = json.dumps(apiData[category][command]["body"])
+        #text = json.dumps(apiData[category][command]["body"])
+        text = apiData[category][command]["body"]
         etxtAPIBody.insert(0,text)
-        
+      
+    #update combo list for command urls
     if "url" in apiData[category][command]:
-        text = json.dumps(apiData[category][command]["url"])
-        etxtAPI.insert(0,text)
-        emenuAPICmd.insert(0, text)
-        apiCommand.set(text)
+        #text = json.dumps(apiData[category][command]["url"])
+        text = apiData[category][command]["url"]
+        # find if text exists in current combo list else just populate it
+        if text in apiData[category]:
+            indexTxt= apiData[category].index(text)
+            content = apiData[category][text]
+            apiCommand.set(indexTxt)   
+        else:
+            logging(f'Equivalent {category} command not listed in drop down menu')
+            content = text
+            etxtAPI.insert(0,content)
+            emenuAPICmd.insert(0, content)
+            apiCommand.set(content)
         #emenuAPICmd.current(emenuAPICmd['values'].index(text))
         if "{" not in text:
             eLblApiId.grid_remove()
@@ -3679,7 +3809,7 @@ def apiListMenuCategory():
     for category in apiData:
         apiCommandsList.insert(0, category)
         
-    if len(apiData) > 15:
+    if len(apiData) > 25:
         sbAPI.grid()
     else:
         try:
@@ -3696,7 +3826,7 @@ def apiListMenuCommands(category):
     apiCommandsList.delete(0,END) 
     for command in apiData[category]:
         apiCommandsList.insert(0, command)
-    apiCommandsList.insert(0, "<- Back to API Categories")
+    apiCommandsList.insert(0, "<< Back to API Categories")
     
     if len(apiData[category]) > 15:
         sbAPI.grid()
@@ -3766,7 +3896,7 @@ def apiListMenu(origin, variable = None):
         sbAPI.destroy()
         
     apiMenuType = 'category'
-    return (apiData,lbAPI,category,apiMenuType)
+    return (apiData,lbAPI,sbAPI, category,apiMenuType)
 
     
 rowPos = 0
@@ -4441,14 +4571,25 @@ eTxtUserLogEnd.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
 
 txtUserFrame = stdLabelFrameStyle(frameUserFields[-1], text = "User Configuration - select <Update User> to accept changes")
 txtUserFrame.grid(column = 0, row = pos(1,rowPos), sticky = N+W)
+
+
 rowPos = 0
+
+picLink = StringVar()
+
+lblUserPicURL = stdLabelStyle(txtUserFrame, text="User Profile Picture")
+lblUserPicLink = stdLabelLinkStyle(txtUserFrame, text = 'None', textvariable = picLink)
+lblUserPicLink.bind("<Button-1>", lambda e: urlOpen(picLink.get()))
+
+lblUserPicURL.grid(row = pos(1,rowPos), column = 0, sticky = E)
+lblUserPicLink.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
+
 
 
 userRoleValue = StringVar()
 lblUserRole = stdLabelStyle(txtUserFrame, text = "User Role")
 userRoleList = []
 comboUserRoles = stdComboboxMenuStyle(txtUserFrame, textvariable=userRoleValue, values=userRoleList)
-
 
 
 lblUserRole.grid(row = pos(1,rowPos), column = 0, sticky = E)
@@ -4472,8 +4613,11 @@ for userField in userTxtData:
         userDataField[userField] = stdEntryStyle(txtUserFrame, textvariable = userTxtData[userField], width=20)
         userDataField[userField].grid(row = rowPos, column = 1, columnspan=2, sticky = W)
         
-        
-        
+ 
+imageUserFrame = stdLabelFrameStyle(txtUserFrame, text = "Image")
+#imageUserFrame.grid(column = 3, row = 3, rowspan = 10, sticky = N+W)       
+lbluserImage = stdLabelStyle(txtUserFrame, text="Profile Picture")
+#lbluserImage.grid(column = 3, row = 2, sticky = N+W)
 
 tempRow = pos(1,rowPos)
 
@@ -4544,7 +4688,7 @@ frameAPI.grid(\
         )
 
 
-(apiData, apiCommandsList,apiCategory, apiMenu) = apiListMenu(frameSubMenuCntrl[3])
+(apiData, apiCommandsList, sbAPI, apiCategory, apiMenu) = apiListMenu(frameSubMenuCntrl[3])
 
 RADIOMODES = [\
         ("POST", "post"),
@@ -4691,6 +4835,13 @@ maxAppHeight = 694
 btnTxtUpdates()
 
 menuButtons(0)
+
+
+
+
+images = []
+
+
 
 
 #Testing
