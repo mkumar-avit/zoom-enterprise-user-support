@@ -158,7 +158,7 @@ apiURL =\
         'plan': 'v2/accounts/@/plans/usage',
         'account':'v2/accounts/@',
         'roles':'v2/roles',
-        'rolesList':'v2/roles/@/members',
+        'role':'v2/roles/@/members',
         'meetings':'v2/users/@/meetings',
         'subaccount':'v2/accounts',
         'recording':'v2/users/@/recordings',
@@ -214,7 +214,7 @@ def logging(logText ,save=True):
         logText = f'{todayStr}{logText}'
      
         if len(logText) >= lineLenMax and logConfig['wrap'].get() == 1:
-            if text is not list():
+            if text is not list:
                 if '{' in logText:
                     try:
                         logText = logText.split("Response:")
@@ -222,7 +222,7 @@ def logging(logText ,save=True):
                     except Exception as e:
                         print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
                     try:
-                        if logText is not list:
+                        if type(logText) is not list:
                             logText = logText.replace('{', '')
                             logText = logText.replace('}','')
                             logText = logText.replace('[','')
@@ -234,9 +234,14 @@ def logging(logText ,save=True):
                             for i in range(len(texthalf) -1, -1, -1):
                                 listbox.insert(0,texthalf[i])
                         else:
+                            logText = f'{logText}'
+                            texthalf = logText.split(",")
+                            for i in range(len(texthalf) -1, -1, -1):
+                                listbox.insert(0,texthalf[i])
                             listbox.insert(0,f'{logText}')   
                     except Exception as e:
                         print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
+                        PrintException(e)
                 else:                
                     #logText.replace('{', '{\n')  
                     #if '}' in logText:
@@ -641,9 +646,21 @@ def openRawUserData():
 
 def openAPIListDetailed():
     data = None
+    from collections import OrderedDict
     
     with open('ZoomAPI-Detailed.json') as jsonFile:
+        #data = json.load(jsonFile, object_pairs_hook=OrderedDict)
         data = json.load(jsonFile)
+    
+    for item in data:
+        try:
+            data[item] = OrderedDict(sorted(data[item].items()))
+        except:
+            pass
+    
+    data = OrderedDict(sorted(data.items()))    
+    #for key, value in sorted(data.items(), key=lambda item: item[1])
+    
     return data
 
 
@@ -714,10 +731,11 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
             url = f'{headerURL}{apiType}{delimiter}'
         
         try:
-            if '@' in url and data != "":
-                url = url.replace("@", data)
+            if data is not None:
+                if '@' in url and data != "":
+                    url = url.replace("@", data)
         except Exception as e:
-            logging(f'Error in url replace: {e}')
+            PrintException(e,f'Error in url replace')
 
         api = f"{url}"
 
@@ -760,9 +778,10 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
                 print(f'No JSON data in response from request: {e}')
         
             
-            if status == 404:
+            if status == 404 or status == 400:
                 try:
-                    return respData['detail']
+                    logging(f'{response.raw}')
+                    return f'HTTP Code{status}: respData["code"],{respData["message"]}'
                 except:
                     return "Error"
             elif 'code' in respData:
@@ -883,6 +902,16 @@ def update_userDB(userID, category, value):
                 userDB[idx][itemIdx] = value
                 break
     
+def update_field(field, data):   
+    if field is type(StringVar):
+        if data is None:
+            data = ''
+        field.set(str(data))
+        field.delete(0,"end")
+        field.insert(0, data)
+    else:
+        if data is not None:
+            field.set(data)    
 
 
 def get_UserInfo(user):
@@ -894,6 +923,11 @@ def get_UserInfo(user):
     groupIdx = 7
     
     print("User Data:  {user}")
+    
+    #Blank all fields first
+    for content in userTxtData:
+        update_field(userTxtData[content],None)    
+    
     
     userId = user[userIdIdx]
     userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive", "Picture URL"]
@@ -913,7 +947,7 @@ def get_UserInfo(user):
         picLink.set(user[-1])
         lblUserPicLink['text'] = 'No Image available'
     root.update()
-    
+     
     
     for item in userInfo:
         try:
@@ -921,12 +955,7 @@ def get_UserInfo(user):
                 userRoleValue.set(userInfo['role_name'])
                 print (f'###Item: {item}, obj:{userTxtData[item]}, Contents: {userInfo[item]}')    
                 #userDataField[item].set(userInfo[item])
-                if userTxtData[item] is type(StringVar):
-                    userTxtData[item].set(str(userInfo[item]))
-                    userDataField[item].delete(0,"end")
-                    userDataField[item].insert(0, userInfo[item])
-                else:
-                    userTxtData[item].set(userInfo[item])
+                update_field(userTxtData[item],userInfo[item])
                 root.update()
         except Exception as e:
             PrintException(e,"Error update user fields")
@@ -1085,7 +1114,7 @@ def testRole():
     userId =  get_userID(userEmail)
     
     userInfo = get_user_data(userId)
-    userNewRole = txtUserRole.get()
+    userNewRole = userRoleValue.get()
     # 2.  Find role Id that was pulled on class init    
     print(f'Roles: {roles}, New Role Proposed: {userNewRole}')
     if roles == {}:
@@ -1093,19 +1122,23 @@ def testRole():
     else:
         if userInfo['role_name'] in roles:
             currentRoleId = roles[userInfo['role_name']]
+            newRoleId = roles[userNewRole]
         else:
             currentRoleId = None
+            newRoleId = None
 
 
-        roleId = roles[userNewRole]
+        roleId = newRoleId
         #3. Set user role based on entry field
         response = \
-            send_REST_request(\
-              f'v2/roles/{roleId}/members',
-              data = None,
+            send_REST_request(
+              'role',
+              data = roleId,
               body = {
-                  "ids":userId,
-                  },
+                  'members':[{
+                      "id":userId
+                  }]
+              },
               rType = "post"
         )
         
@@ -1122,11 +1155,9 @@ def UpdateUser_Info():
     
     userEmail = userEmailAddr.get()
     
-    
-    
-    ## Populate raw dict with full user info
-   
-        
+  
+   ##@@TODO Clear all fields first
+    ## Populate raw dict with full user info      
     try:
         for user in userDB:
             if user[emailIdx] == userEmail:
@@ -1853,15 +1884,10 @@ def get_users_settings():
                                             writer.writerow(csvRow)
                                         except Exception as e:
                                             PrintException(e)
-                                            None
                                 except Exception as e:
                                     PrintException(e)
-                                    #None
                         except Exception as e:
-                            PrintException(e)
-                            #None
-
-                
+                            PrintException(e)         
     except Exception as e:
         logging (f'Error with creating file: {e}')
     
@@ -1905,13 +1931,10 @@ def save_acct_settings(settingsDB):
                                         writer.writerow(csvRow)
                                     except Exception as e:
                                         PrintException(e)
-                                        None
                             except Exception as e:
                                 PrintException(e)
-                                #None
                     except Exception as e:
-                        PrintException(e)
-                        #None               
+                        PrintException(e)             
     except Exception as e:
         logging (f'Error with creating file: {e}')    
     
@@ -3187,7 +3210,7 @@ def logConfigFrame():
     frIdx = len(frameSettings) - 1
     
         
-    frameSettings[frIdx].grid(row = 0, rowspan = rows, column = frColumns+1, sticky = W)   
+    frameSettings[frIdx].grid(row = 0, rowspan = rows, column = frColumns, sticky = W)   
     
     
     
@@ -3806,17 +3829,19 @@ def apiListMenuCategory():
     
     apiMenu = "category"
     apiCommandsList.delete(0,END)
-    for category in apiData:
+    for category in reversed(apiData):
         apiCommandsList.insert(0, category)
         
-    if len(apiData) > 25:
-        sbAPI.grid()
+    if len(apiData) > 35:
+        sbAPIList.grid()
     else:
         try:
-            sbAPI.destroy()
-        except:
-            pass
+            sbAPIList.grid_remove()
+        except Exception as e:
+            PrintException(e)
     
+    ##@@TODO Resize and remove spacer buttons
+    menuButtons(3)
     
 def apiListMenuCommands(category):
     global apiMenu
@@ -3824,19 +3849,20 @@ def apiListMenuCommands(category):
     apiMenu = category
     emenuAPICat.set(category)
     apiCommandsList.delete(0,END) 
-    for command in apiData[category]:
+    for command in reversed(apiData[category]):
         apiCommandsList.insert(0, command)
     apiCommandsList.insert(0, "<< Back to API Categories")
     
     if len(apiData[category]) > 15:
-        sbAPI.grid()
+        sbAPIList.grid()
     else:
         try:
-            sbAPI.destroy()
+            sbAPIList.grid_remove()
         except:
             pass
         
-        
+    ##@@TODO Resize and remove spacer buttons
+    menuButtons(3)     
 
 def apiListMenu(origin, variable = None):
     global apiListVar
@@ -3875,27 +3901,28 @@ def apiListMenu(origin, variable = None):
         ) 
     
     sbAPI.grid(
-        row = 0,
-        column = colPos+1,
+        row = rowPos,
+        column = colPos,
         rowspan=40,
-        sticky = N+S+W
+        sticky = N+S+E
     )
     
     
-    lbAPI.config(yscrollcommand = scrollbar.set)  
+    lbAPI.config(yscrollcommand = sbAPI.set)  
     sbAPI.config(command = lbAPI.yview)
     
     apiData = openAPIListDetailed()
     
-    for category in apiData:
+    for category in reversed(apiData):
         lbAPI.insert(0, category)
     
     if len(apiData) > 15:
         sbAPI.grid()
     else:
-        sbAPI.destroy()
+        sbAPI.grid_remove()
         
     apiMenuType = 'category'
+    
     return (apiData,lbAPI,sbAPI, category,apiMenuType)
 
     
@@ -4688,7 +4715,7 @@ frameAPI.grid(\
         )
 
 
-(apiData, apiCommandsList, sbAPI, apiCategory, apiMenu) = apiListMenu(frameSubMenuCntrl[3])
+(apiData, apiCommandsList, sbAPIList, apiCategory, apiMenu) = apiListMenu(frameSubMenuCntrl[3])
 
 RADIOMODES = [\
         ("POST", "post"),
@@ -4788,7 +4815,7 @@ etxtAPIBody.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 elblAPIURL.grid(row = pos(1,rowPos), column= 0, columnspan=6, sticky = NSEW)
 
 btnAPIUpdate = stdButtonStyle(frameAPI, text="SEND", width=10, command=customAPI)
-btnAPIUpdate.grid(row = 0, rowspan=4, column = 6, sticky = E)
+btnAPIUpdate.grid(row = 0, rowspan=4, column = 5, sticky = E)
 
 
 frameApiPresets = stdEntryStyle(frameAPI)

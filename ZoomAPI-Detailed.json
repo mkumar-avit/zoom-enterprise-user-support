@@ -187,5 +187,607 @@
 				}
 			}
 		}
-	}
+	},
+	"Webinars": {
+		"List Webinars": {
+			"url": "/users/{userId}/webinars",
+			"method": "get",
+			"path_param": "userId",
+			"query_param": {
+				"page_size": 300,
+				"page number": 1
+			}
+		},
+		"Create Webinar": {
+			"url": "/users/{userId}/webinars",
+			"method": "post",
+			"uid": "userId",
+			"body": {
+				"object": {
+					"topic": "str",
+					"type": "int",
+					"duration": "int",
+					"timezone": "str",
+					"password": "str",
+					"agenda": "str",
+					"tracking_fields": {
+						"field": "str",
+						"value": "str"
+					},
+					"recurrence": {
+						"type": "int",
+						"repeat_interval": "int",
+						"weekly_days": "str",
+						"monthly_day": "int",
+						"monthly_week": "int",
+						"monthly_week_day": "int",
+						"end_times": "int",
+						"end_date_time": "str"
+					},
+					"settings": {
+						"host_video": "bool",
+						"panelists_video": "bool",
+						"practice_session": "bool",
+						"hd_video": "bool",
+						"approval_type": "int",
+						"registration_type": "int",
+						"audio": "str",
+						"audio_recording": "str",
+						"enforce_login": "bool",
+						"enforce_login_domains": "str",
+						"alternative_host": "str",
+						"close_registration": "bool",
+						"show_share_button": "bool",
+						"allow_multiple_devices": "bool",
+						"on_demand": "bool",
+						"global_dial_in_countries": ["str"],
+						"contact_name": "str",
+						"contact_email": "str",
+						"registrants_restrict_number": "int",
+						"post_webinar_survey": "bool",
+						"survey_url": "str",
+						"registrants_email_notification": "bool",
+						"meeting_authentication": "bool",
+						"authentication_option": "str",
+						"authentication_domains": "str"
+					}
+
+				}
+			}
+		},
+		"Get Webinar": {
+			"url": "/webinars/{webinarId}",
+			"method": "get",
+			"path_param": "webinarId",
+			"query_param": {
+				"occurrence_id": "str",
+				"show_previous_occurrences": "bool"
+			}
+		},
+		"Update a Webinar": {
+			"url": "/webinars/{webinarId}",
+			"method": "delete",
+			"path_param": "webinarId",
+			"query_param": {
+                "occurrence_id":"str"
+            }
+
+		},
+		"Delete a Webinar": {
+			"url": "/webinars/{webinarId}",
+			"method": "delete",
+			"path_param": "webinarId",
+			"query_param": {
+                "occurrence_id": "str"
+            }
+		},
+		"Update Webinar Status": {
+			"url": "/webinars/{webinarId}/status",
+			"method": "put",
+			"uid": "webinarId"
+		},
+		"List Panelists": {
+			"url": "/webinars/{webinarId}/panelists",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"Add Panelists": {
+			"url": "/webinars/{webinarId}/panelists",
+			"method": "post",
+			"uid": "webinarId"
+		},
+		"Remove Panelists": {
+			"url": "/webinars/{webinarId}/panelists",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"Remove a Panelist": {
+			"url": "/webinars/{webinarId}/panelists/{panelistId}",
+			"method": "delete",
+			"path_param": {
+				"webinarId": "int",
+				"panelistId": "int"
+			}
+		},
+		"List Webinar Registrants": {
+			"url": "/webinars/{webinarId}/registrants",
+			"method": "get",
+			"path_param": "webinarId",
+			"query_param": {
+				"occurence": "str",
+				"status": [
+					"pending",
+					"approved",
+					"denied"
+				],
+				"page_size": "300",
+				"page_number": "1",
+				"next_page_token": "str"
+			}
+		},
+		"Add a Webinar Registrant Create": {
+			"url": "/webinars/{webinarId}/registrants",
+			"method": "post",
+			"path_param": "webinarId",
+			"query_param": {
+                "occurrence_ids":"str"
+            }
+		},
+		"Update Webinar Registrant Status": {
+			"url": "/webinars/{webinarId}/registrants/status",
+			"method": "put",
+			"path_param": "webinarId",
+			"query_param": {
+                "occurrence_Id": "str"
+            }
+		},
+		"List Past Webinar Instances": {
+			"url": "/past_webinars/{webinarId}/instances",
+			"method": "get",
+			"uid": "webinar"
+		},
+		"List Webinars Polls": {
+			"url": "/webinars/{webinarId}/polls",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"Create a Webinar's Poll": {
+			"url": "/webinars/{webinarId}/polls",
+			"method": "post",
+			"uid": "webinarId"
+		},
+		"Get a Webinar Poll": {
+			"url": "/webinars/{webinarId}/polls/{pollId}",
+			"method": "get",
+			"path_param": {
+				"webinarId": "int",
+				"pollId": "str"
+			}
+		},
+		"Update a Webinar Poll": {
+			"url": "/webinars/{webinarId}/polls/{pollId}",
+			"method": "put",
+			"path_param": {
+				"webinarId": "int",
+				"pollId": "str"
+			}
+		},
+		"Delete a Webinar Poll": {
+			"url": "/webinars/{webinarId}/polls/{pollId}",
+			"method": "delete",
+			"path_param": {
+				"webinarId": "int",
+				"pollId": "str"
+			}
+		},
+		"List Registration Questions": {
+			"url": "/webinars/{webinarId}/registrants/questions",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"Update Registration Questions": {
+			"url": "/webinars/{webinarId}/registrants/questions",
+			"method": "patch",
+			"uid": "webinarId"
+		},
+		"Get a Webinar Registrant": {
+			"url": "/webinars/{webinarId}/registrants/{registrantId}",
+			"method": "get",
+			"path_param": {
+				"webinarId": "int",
+				"registrantId": "str"
+			},
+			"query_param": {
+                "occurrence_id":"str"
+            }
+		},
+		"Get a Webinar Absentees": {
+			"url": "/past_webinars/{WebinarUUID}/absentees",
+			"method": "get",
+			"path_param": "WebinarUUID",
+			"query_param": {
+				"occurrence_id": "str",
+				"page_size": "300",
+				"next_page_token": "str"
+			}
+		},
+		"Get Webinar Tracking Sources": {
+			"url": "//webinars/{webinarId}/tracking_sources",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"List Past Webinar Poll Results": {
+			"url": "//past_webinars/{webinarId}/polls",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"List Q&A of Past Webinar": {
+			"url": "/past_webinars/{webinarId}/qa",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"List Past Webinar Files": {
+			"url": "/past_webinars/{webinarId}/files",
+			"method": "get",
+			"uid": "webinarId"
+		},
+		"List Webinar Templates": {
+			"url": "/users/{userId}/webinar_templates",
+			"method": "get",
+			"uid": "userId"
+		}
+	},
+	"Phone": {
+		"List Phone Numbers": {
+			"url": "/phone/numbers",
+			"method": "get",
+			"query_param": {
+				"next_page_token": "str",
+				"type": [
+					"assigned",
+					"unassigned",
+					"all"
+				],
+				"extension_type": [
+					"user",
+					"callQueue",
+					"autoReceptionist",
+					"commonAreaPhone"
+				],
+				"page_size": "100",
+				"number_type": "str",
+				"pending_numbers": "bool",
+				"site_id": "str"
+			}
+		},
+		"Get User's Profile": {
+			"url": "/phone/users/{userId}",
+			"method": "get",
+			"uid": "userId"
+		},
+		"Get User's Settings": {
+			"url": "/phone/users/{userId}/settings",
+			"method": "get",
+			"uid": "userId"
+		},
+		"Get User's Call Logs": {
+			"url": "/phone/users/{userId}/call_logs",
+			"method": "get",
+			"path_param": "userId",
+			"query_param": {
+				"page_size": "300",
+				"from": "str",
+				"to": "str",
+				"type": "str",
+				"next_page_token": "str"
+			}	
+		},
+		"Get User's Recordings": {
+			"url": "/phone/users/{userId}/recordings",
+			"method": "get",
+			"path_param": "userId",
+			"query_param": {
+				"page_size": "300",
+				"next_page_token": "str"
+			}
+		},
+		"Get User's Voicemails": {
+			"url": "/phone/users/{userId}/voice_mails",
+			"method": "get",
+			"path_param": "userId",
+			"query_param": {
+				"page_size": "300",
+				"status": "str",
+				"next_page_token": "str"
+			}
+		},
+		"Get Account's Call Logs": {
+			"url": "/phone/call_logs",
+			"method": "get",
+			"query_param": {
+				"page_size": "300",
+				"from": "str",
+				"to": "str",
+				"type": "str",
+				"next_page_token": "str"
+			}
+		},
+		"Assign Phone Number to User": {
+			"url": "/phone/users/{userId}/phone_numbers",
+			"method": "delete",
+			"uid": "accountId"
+		},
+		"Unassign User's Phone Number": {
+			"url": "/phone/users/{userId}/phone_numbers/{phoneNumberId}",
+			"method": "get",
+			"path_param": {
+				"userId": "str",
+				"phoneNumberId": "str"
+			}
+		},
+		"Assign Calling Plan to a User":{
+			"url": "/phone/users/{userId}/calling_plans",
+			"method" : "post",
+			"uid": "userId"
+		},
+		"Unassign User's Calling Plan": {
+			"url": "/phone/users/{userId}/calling_plans/{type}",
+			"method": "delete",
+			"path_param": {
+				"type": "str",
+				"userId": "str"
+			}
+		},
+		"Get Phone Number Details": {
+			"url": "/phone/numbers/{numberId}",
+			"method" : "get",
+			"uid": "numberId"
+		},
+		"Change Main Company Number": {
+			"url": "/phone/company_number",
+			"method": "put"
+		}, 
+		"List Calling Plans": {
+			"url": "/phone/calling_plans",
+			"method": "get"
+		},
+		"List Phone Users": {
+			"url": "/phone/users",
+			"method": "get",
+			"query_param": {
+				"page_size": "100",
+				"next_page_token": "str",
+				"site_id": "str"
+			}
+		}
+	},     
+	"Rooms Devices": {
+		"Change Zoom Rooms App Version": {
+			"url": "/rooms/{roomId}/devices/{deviceId}/app_version",
+			"method": "put",
+			"path_param": {
+				"roomId": "str",
+				"deviceId": "str"
+			},
+			"body": {
+				"object": {
+					"action": "str"
+				}
+			}
+		}
+	},
+    "TSP": {
+		"Get Account's TSP Information": {
+			"url": "/tsp",
+			"method": "get"
+		},
+		"Update Account's TSP information": {
+			"url": "/tsp",
+			"method": "patch"
+		},
+		"List User's TSP Accounts": {
+			"url": "/users/{userId}/tsp",
+			"method": "get",
+			"uid": "userId"
+		},
+		"Add a User's TSP Account": {
+			"url": "/users/{userId}/tsp",
+			"method": "post",
+			"uid": "userId"
+		},
+		"Get a User's TSP Account": {
+			"url": "/users/{userId}/tsp/{tspId}",
+			"method": "get",
+			"path_param": {
+				"userId": "str",
+				"tspId": "str"
+			}
+		},
+		"Update a TSP Account": {
+			"url": "/users/{userId}/tsp/{tspId}",
+			"method": "patch",
+			"path_param": {
+				"userId": "str",
+				"tspId": "str"
+			}
+		},
+		"Delete a User's TSP Account": {
+			"url": "/users/{userId}/tsp/{tspId}",
+			"method": "delete",
+			"path_param": {
+				"userId": "str",
+				"tspId": "str"
+			}
+		},
+		"Set Global Dialing URL for a TSP user": {
+			"url": "/users/{userId}/tsp/settings",
+			"method": "patch",
+			"uid": "userId"
+		}
+	
+	},
+	"Users": {
+		"List Users": {
+			"url": "/users",
+			"method": "get",
+			"query_param": {
+				"statue": "str",
+				"page_size": "300",
+				"role_id": "str",
+				"page_number": "str",
+				"include_fields": "str"
+			}
+		},
+		"Create Users": {
+			"url": "/users",
+			"method": "post"
+		},
+		"Get a User": {
+			"url": "/users/{userId}",
+			"method": "get",
+			"path_param": "userId",
+			"query_param": {
+                "login_type":"int"
+            }
+		},
+	   "Update a User": {
+            "url": "/users/{userId}",
+            "method": "patch",
+            "path_param": "userId",
+            "query_param": {
+                "login_type":"int"
+            }
+        },
+    	"Delete User": {
+    		"url": "/users/{userId}",
+    		"method": "delete",
+    		"path_param": "userId",
+    		"query_param": {
+    			"action": "str",
+    			"transfer_email": "str",
+    			"transfer_meeting": "bool",
+    			"transfer_webinar": "bool",
+    			"transfer_recording": "bool"
+    		}
+        },
+  		"List User Assistants": {
+  			"url": "/users/{userId}/assistants",
+  			"method": "get",
+  			"uid": "userId"
+  		},
+  		"Add Assistants": {
+  			"url": "/users/{userId}/assistants",
+  			"method": "post",
+  			"uid": "userId"
+  		},
+  		"Delete User Assistants": {
+  			"url": "/users/{userId}/assistants",
+  			"method": "delete",
+  			"uid": "userId"
+  		},
+  		"Delete a User Assistant": {
+  			"url": "/users/{userId}/assistants/{assistantId}",
+  			"method": "delete",
+  			"path_param": {
+  				"userId": "str",
+  				"assistantId": "str"
+  			}
+  		},
+  		"List User Schedulers": {
+  			"url": "/users/{userId}/schedulers",
+  			"method": "get",
+  			"uid": "userId"
+  		},
+  		"Delete User Schedulers": {
+  			"url": "/users/{userId}/schedulers",
+  			"method": "delete",
+  			"uid": "userId"
+  		},
+  		"Delete a Scheduler": {
+  			"url": "/users/{userId}/schedulers/{schedulerId}",
+  			"method": "delete",
+  			"path_param": {
+  				"userid": "str",
+  				"schedulerId": "str"
+  		    }
+        },
+  		"Upload a User's Profile Picture": {
+  			"url": "/users/{userId}/picture",
+  			"method": "post",
+  			"uid": "userId"
+  		},
+  		"Get User Settings": {
+  			"url": "/users/{userId}/settings",
+            "method": "get",
+  			"path_param": "userId",
+  			"query_param": {
+  				"login_type": "str",
+  				"option": "str"
+            }
+        },
+  		"Update User Settings": {
+  			"url": "/users/{userId}/settings",
+  			"method": "patch",
+            "path_param": "userId",
+  			"query_param": {
+                "option" :"str"
+            }
+  		},
+  		"Update a User's Status": {
+            "url": "/users/{userId}/status",
+            "method": "put",
+  			"uid": "userId"
+  		},
+  		"Update a User's Password": {
+  			"url": "/users/{userId}/password",
+            "method": "put",
+  			"uid": "userId"
+  		},
+  		"Get User Permissions": {
+  			"url": "/users/{userId}/permissions",
+  			"method": "get",
+            "uid": "userId"
+  		},
+        "Get a User Token": {
+            "url": "/users/{userId}/token",
+            "method": "get",
+            "path_param": "userId",
+            "query_param": {
+                "type": "str",
+                "ttl": "int"
+            }
+  		},
+        "Revoke a User's SSO Token": {
+  		    "url": "/users/{userId}/token",
+  			"method": "delete",
+            "uid": "userId"
+  		},
+  		"Check a User Email": {
+              "url": "/users/email",
+              "method": "get",
+              "query_param": {
+                  "email":"str"
+              }
+  		},
+  		"Update a User's Email": {
+  			"url": "/users/{userId}/email",
+  			"method": "put",
+  			"uid": "userId"
+  		},
+  		"Check a User's PM Room Name": {
+  			"url": "/users/vanity_name",
+  			"method": "get",
+  			"query_param": {
+                "vanity_name":"str"
+            }
+  		},
+  		"Switch a User's Account": {
+  			"url": "/accounts/{accountId}/users/{userId}/account",
+  			"method": "put",
+  			"path_param": {
+  				"accountId": "str",
+  				"userId": "str"
+  			}
+  		}
+  	}     
 }
