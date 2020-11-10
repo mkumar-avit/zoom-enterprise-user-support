@@ -1,5 +1,10 @@
 # zoom-enterprise-user-deprovisioning
 
+# Developer Comments
+I will be working on updates to this sporadically throughout November 2020 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets.
+
+
+# Overview
 Standalone Python program that manages deprovisoning or relicensing users in Zoom to basic based on either an email list of users, or their last sign-in date.  It uses the TKinter module to provide a very basic GUI interface.  A code-signed Windows App will be forthcoming, and I may also generate a Mac version once the code moves into a "beta" state.
 
 Users need an API Key and API Secret with admin-level access from a JWT Token App in Zoom's marketplace.  The code will generate the JWT Token. 
