@@ -3,6 +3,10 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout November 2020 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets.
 
+#Latest Updates (November 24th, 2020)
+- Added account lock settings to be pulled and added into group settings file.  Also added timestamp to group settings file to be able to track changes over time.
+- Working on custom API presets, still a work in progress so it is not fully functional nor does the gui have all the finalized features yet.
+
 
 # Overview
 Standalone Python program that manages deprovisoning or relicensing users in Zoom to basic based on either an email list of users, or their last sign-in date.  It uses the TKinter module to provide a very basic GUI interface.  A code-signed Windows App will be forthcoming, and I may also generate a Mac version once the code moves into a "beta" state.
