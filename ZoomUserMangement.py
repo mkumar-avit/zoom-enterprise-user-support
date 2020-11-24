@@ -94,14 +94,17 @@ API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
 API_FILE = 'ZoomAPI.json'
-SETTINGS_FILE = "Zoom Group Setting Tracking.csv"
+SETTINGS_FILE = "Zoom Group Setting Tracking"
 ## GLOBAL VARIABLES ##
 maxMonths = 0
 maxNum = 0
 roles = {}
 indexList = []
+menuButtonList = []
 cancelAction = False
 fileLog = ""
+statusZoom = ""
+presets = {}
 tokenError = True
 localTimeZone = tzlocal.get_localzone().zone
 dateInactiveThreshold = datetime.datetime.now()
@@ -170,9 +173,9 @@ apiURL =\
         'trackingList':'v2/tracking_fields',
         'trackingGet':'v2/tracking_fields/@',
         'emailUpdate':'v2/users/@/email',
-        'groupSettings':'v2/groups/@/settings'       
+        'groupSettings':'v2/groups/@/settings',
+        'lockSettings': 'v2/accounts/@/lock_settings'
     }
-
 userDB = []
 userRawDB = {}
 groupDB = {}
@@ -182,7 +185,7 @@ logConfig = {}
 
 ####################################
 
-def logging(logText ,save=True):
+def logging(logText ,save=True, debugOnly = False):
     """Method meant to display text in Tkinter listbox and print data, with a
         timestamp then make a call to save the listbox contents
        
@@ -199,67 +202,67 @@ def logging(logText ,save=True):
     today = datetime.datetime.now()
 
     lineLenMax = 89   
-
     
-    try:
-        if listbox.size() == 0:
-            fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
-    except:
-        fileLog = f"ZoomAppLog.txt"
+    if debugOnly == False:
+        try:
+            if listbox.size() == 0:
+                fileLog = f"ZoomAppLog-{datetime.datetime.strftime(today, dateStr['file'])}.txt"    
+        except:
+            fileLog = f"ZoomAppLog.txt"
+                
+        if len(logText) > 0:
+            todayStr = ""
+            if logConfig['timestamp'].get() == 1:
+                todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
+            logText = f'{todayStr}{logText}'
+         
+            if len(logText) >= lineLenMax and logConfig['wrap'].get() == 1:
+                if text is not list:
+                    if '{' in logText:
+                        try:
+                            logText = logText.split("Response:")
+                            logText = logText[1]
+                        except Exception as e:
+                            print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
+                        try:
+                            if type(logText) is not list:
+                                logText = logText.replace('{', '')
+                                logText = logText.replace('}','')
+                                logText = logText.replace('[','')
+                                logText = logText.replace(']','')
+                                logText = logText.replace("'",'')
+                                logText = logText.replace("_",' ')
+                        
+                                texthalf = logText.split(",")
+                                for i in range(len(texthalf) -1, -1, -1):
+                                    listbox.insert(0,texthalf[i])
+                            else:
+                                logText = f'{logText}'
+                                texthalf = logText.split(",")
+                                for i in range(len(texthalf) -1, -1, -1):
+                                    listbox.insert(0,texthalf[i])
+                                listbox.insert(0,f'{logText}')   
+                        except Exception as e:
+                            print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
+                            PrintException(e)
+                    else:                
+                        #logText.replace('{', '{\n')  
+                        #if '}' in logText:
+                        #    logText.replace('}', '}\n')
+                        
+                        textChunk = [logText[i:i+lineLenMax] for i in range(0, len(logText), lineLenMax)]
+                        #print(f' Dated Text {len(textChunk)}:{textChunk}')
+                        for i in range(len(textChunk) - 1, -1, -1):
+                            #logData.set(textChunk[i])
+                            listbox.insert(0, textChunk[i])
+            else:
+                #logData.set(logText)
+                listbox.insert(0, logText)
             
-    if len(logText) > 0:
-        todayStr = ""
-        if logConfig['timestamp'].get() == 1:
-            todayStr = f'[{datetime.datetime.strftime(today, dateStr["log"])[:-3]}] ' 
-        logText = f'{todayStr}{logText}'
-     
-        if len(logText) >= lineLenMax and logConfig['wrap'].get() == 1:
-            if text is not list:
-                if '{' in logText:
-                    try:
-                        logText = logText.split("Response:")
-                        logText = logText[1]
-                    except Exception as e:
-                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
-                    try:
-                        if type(logText) is not list:
-                            logText = logText.replace('{', '')
-                            logText = logText.replace('}','')
-                            logText = logText.replace('[','')
-                            logText = logText.replace(']','')
-                            logText = logText.replace("'",'')
-                            logText = logText.replace("_",' ')
-                    
-                            texthalf = logText.split(",")
-                            for i in range(len(texthalf) -1, -1, -1):
-                                listbox.insert(0,texthalf[i])
-                        else:
-                            logText = f'{logText}'
-                            texthalf = logText.split(",")
-                            for i in range(len(texthalf) -1, -1, -1):
-                                listbox.insert(0,texthalf[i])
-                            listbox.insert(0,f'{logText}')   
-                    except Exception as e:
-                        print(f'!!!!!!Error in Logging: {e}, \nMessage:{logText}')
-                        PrintException(e)
-                else:                
-                    #logText.replace('{', '{\n')  
-                    #if '}' in logText:
-                    #    logText.replace('}', '}\n')
-                    
-                    textChunk = [logText[i:i+lineLenMax] for i in range(0, len(logText), lineLenMax)]
-                    #print(f' Dated Text {len(textChunk)}:{textChunk}')
-                    for i in range(len(textChunk) - 1, -1, -1):
-                        #logData.set(textChunk[i])
-                        listbox.insert(0, textChunk[i])
-        else:
-            #logData.set(logText)
-            listbox.insert(0, logText)
-        
-        print(f"Log:  {logText}")
-        root.update()
-        if save == True and logConfig['save'].get() == 1:
-            logSave()
+            print(f"Log:  {logText}")
+            root.update()
+            if save == True and logConfig['save'].get() == 1:
+                logSave()
 
 def PrintException(error, errMsg = ""):
     """Method meant to display exception error type and message with line number
@@ -316,7 +319,8 @@ def timeLocal(utcTimeStr, typeval = "string"):
         if typeval == "string":
             localTZ = datetime.datetime.strftime(localTZ, dateStr["12h"])
     except Exception as e:
-        PrintException(e)
+        pass
+        #PrintException(e)
     
     return localTZ
     
@@ -536,10 +540,12 @@ def actionBtnsState(state):
         btnDeleteInactive["state"] = "normal"
         btnOpenDelete["state"] = "normal"
         btnSettingsStats["state"] = "normal"
+        btnAcctAttribs["state"] = "normal"
     else:
         btnDeleteInactive["state"] = "disabled"
         btnOpenDelete["state"] = "disabled"
-        btnSettingsStats["state"] = "disabled"        
+        btnSettingsStats["state"] = "disabled"
+        btnAcctAttribs["state"] = "disabled"
 
 
 
@@ -675,6 +681,7 @@ def send_REST_request(apiType, data="", body= None, param = None, rType = "get",
           
     '''
     global tokenError
+    global statusZoom
     global images
     response = ""
     respData = ""
@@ -913,8 +920,17 @@ def update_field(field, data):
         if data is not None:
             field.set(data)    
 
-
+def groupParse(groupName):
+    if groupName == 'No Group':
+        group = "AcctSetting"
+    else:
+        groups = groupName.split(":  ")
+        group = groups[1]
+    
+    return group
+        
 def get_UserInfo(user):
+    global menuUserGroupItems
     
     licNo = 1
     emailIdx = 1
@@ -934,6 +950,12 @@ def get_UserInfo(user):
     
     userEmail = user[emailIdx]
     
+    group = groupParse(user[groupIdx]) 
+    
+    for item in menuUserGroupItems:
+        menuUserGroupItems[item]['type'].set(0)
+        
+    menuUserGroupItems[group]['type'].set(1)
     
     
     
@@ -980,12 +1002,7 @@ def get_UserInfo(user):
         PrintException(e,f"User {userId} Setting can't be retrieved")
     
     try:
-        k = ''
-        if user[groupIdx] == 'No Group':
-            group = "AcctSetting"
-        else:
-            groups = user[groupIdx].split(":  ")
-            group = groups[1]
+        k = ''  
         
         if userSettings != {}:
             diffCount = 0
@@ -1154,7 +1171,6 @@ def UpdateUser_Info():
     userDBdef = ["Flags","Email","User ID","First Name", "Last Name", "Last Login", "Client Ver", "Group", "License","Months Inactive", "Picture URL"]
     
     userEmail = userEmailAddr.get()
-    
   
    ##@@TODO Clear all fields first
     ## Populate raw dict with full user info      
@@ -1485,6 +1501,7 @@ def extract_group(group):
         userGroup = group
         
     return userGroup
+
 def get_group_data():
     groupData = {}
         
@@ -1523,6 +1540,51 @@ def get_group_data():
                 
 
     return groupData
+
+
+def groupMenuInit(origin, groupData = None, menuObj = None):
+    groupMenu = {} 
+    
+    # get # of groups
+    # add groups into menu
+    # return
+    if menuObj is None:
+        menuObj =  Menubutton (origin, text= "Group", relief=RAISED )
+        menuObj.grid()
+        menuObj.menu  =  Menu ( menuObj, tearoff = 0 )
+        menuObj["menu"]  =  menuObj.menu
+    else:
+        menuObj.grid()
+    
+    try:
+        if groupData is None:
+            groupData = get_group_data()
+            
+        try:
+            menuObj.menu.delete(0, len(groupData)) 
+        except Exception as e:
+            PrintException(e)
+      
+        for group in groupData:
+            groupName = groupData[group]
+            #1. Create group name in dictionary
+            groupMenu[groupName] = {}
+            #2 Add variable type to dict under group
+            groupMenu[groupName].update({'type':IntVar(value = 0)})
+            #3 Add tkinter menu object to dict under group
+            groupMenu[groupName].update({
+                'obj': menuObj.menu.add_checkbutton (
+                    label=groupName,
+                    variable=groupMenu[groupName]['type']
+                )
+        })
+            
+        root.update()
+        print (f'### Menu: {groupMenu}')
+    except Exception as e:
+        PrintException(e)
+        
+    return (menuObj, groupMenu)
 
 def validate_user_modification(userID):
     pass
@@ -1893,11 +1955,13 @@ def get_users_settings():
     
     cancelActions('reset')
 
-def save_acct_settings(settingsDB):
+def save_acct_settings(settingsDB, lockSetting):
     
     try:
-        with open(SETTINGS_FILE, 'w', newline='') as csvFile:
-            writer = csv.DictWriter(csvFile, fieldnames = ["Group", "Category", "Setting","Value"])
+        today = datetime.datetime.now()
+        fileName = f"{SETTINGS_FILE}-{datetime.datetime.strftime(today, dateStr['file'])}.csv"
+        with open(fileName, 'w', newline='') as csvFile:
+            writer = csv.DictWriter(csvFile, fieldnames = ["Group", "Category", "Setting","Value", "Locked"])
             writer.writeheader()                
         
             for group in settingsDB:
@@ -1908,7 +1972,8 @@ def save_acct_settings(settingsDB):
                     "Group": group,
                     "Category":"",
                     "Setting":"",
-                    "Value":""
+                    "Value":"",
+                    "Locked":""
                 }
                 
                 if groupSettings != {}:
@@ -1926,8 +1991,15 @@ def save_acct_settings(settingsDB):
                                             "Group": group,
                                             "Category":category,
                                             "Setting":setting,
-                                            "Value":value
+                                            "Value":value,
+                                            "Locked":""
                                             }
+                                        
+                                        try:
+                                            csvRow.update({"Locked":lockSetting[category][setting]})    
+                                        except:
+                                            pass
+                                        
                                         writer.writerow(csvRow)
                                     except Exception as e:
                                         PrintException(e)
@@ -1949,7 +2021,7 @@ def get_groups_settings(groupData):
     
     logging(f'{count} Retrieving Account settings')
     groupDB['AcctSetting'] = get_acct_settings()
-        
+    lockSettings = get_lock_settings()    
         
     for groupID in groupData:
         if cancelAction is True:
@@ -1965,7 +2037,7 @@ def get_groups_settings(groupData):
         except Exception as e:
             PrintException(e)
         
-    save_acct_settings(groupDB)   
+    save_acct_settings(groupDB, lockSettings)   
 
 
 def get_group_settings(groupID, count = 0):   
@@ -1989,6 +2061,19 @@ def get_group_settings(groupID, count = 0):
     
     return groupSettings
 
+def get_lock_settings():
+    try:
+        acctID = "me"
+        timeStart = time.time()
+        acctSettings = send_REST_request('lockSettings', data = acctID, rType = "get")  
+        timeEnd = time.time()            
+        timeTotal = timeEnd - timeStart
+         
+    except Exception as e:
+        PrintException(e)
+       
+    return acctSettings
+          
 def get_acct_settings():
     acctSettings = {}
     
@@ -2310,6 +2395,7 @@ def get_users_data(groupsDict):
                                 groupCnt = 0
                                 groupName = ''
                                 groupNames = ''
+                                groupList = []
                                 for group in user['group_ids']:
                                     groupCnt += 1
                                    
@@ -2319,6 +2405,7 @@ def get_users_data(groupsDict):
                                         else:
                                             groupName = 'No Group'
                                             flagUser = ['No','GroupID']
+                                        groupList.append(groupName)
                                     except Exception as e:
                                         print('**Group Error: {}'.format(e))
                                         
@@ -2389,7 +2476,8 @@ def get_users_data(groupsDict):
                                     userGroup,
                                     userLicense,
                                     userLoginMonths,
-                                    userPicURL
+                                    userPicURL,
+                                    groupList
                                 ]
                                 userDB.append(user_ids)
                                 actionBtnsState('enabled')
@@ -2759,25 +2847,27 @@ def userDailySignInLog(userEmail, dateStart = None, dateEnd = None, nextPage = N
     try:
         signinLogs = send_REST_request('signin', param=params, rType = "get", note = "")
 
-        
-        for userLog in signinLogs["activity_logs"]:
-            for item in userLog:
-                if userEmail in userLog[item]:
-                    for item in userLog:
-                        text = item.replace("_", " ")
-                        if text == 'time':
-                            userLog[item] = timeLocal(userLog[item], "string")
-                        logging(f"{text}: {userLog[item]}")
+        if "activity_logs" in signinLogs:        
+            for userLog in signinLogs["activity_logs"]:
+                for item in userLog:
+                    if userEmail in userLog[item]:
+                        for item in userLog:
+                            text = item.replace("_", " ")
+                            if text == 'time':
+                                userLog[item] = timeLocal(userLog[item], "string")
+                            logging(f"{text}: {userLog[item]}")
+    
+            try:
+                if signinLogs['next_page_token']:
+                    logging('Checking next page of sign in/out activity logs...')
+                    pageCounter += 1
+                    userDailySignInLog(userEmail, dateStart, dateEnd, nextPage = signinLogs['next_page_token'])
+            except Exception as e:
+                PrintException(e)
     except Exception as e:
         PrintException(e)
 
-    try:
-        if signinLogs['next_page_token']:
-            logging('Checking next page of sign in/out activity logs...')
-            pageCounter += 1
-            userDailySignInLog(userEmail, dateStart, dateEnd, nextPage = signinLogs['next_page_token'])
-    except Exception as e:
-        PrintException(e)
+    
     if pageCounter > 0:
         pageCounter = 0
         logging(f'Done checking Daily SignIn/Out log for: {userEmail}')
@@ -2819,6 +2909,8 @@ def callback():
     global userDB
     global cancelAction
     global groupFilterList
+    global menuUserGroups
+    global menuUserGroupItems
     
     startTime = time.time()
     cancelActions(False)
@@ -2828,6 +2920,11 @@ def callback():
     zoom_token_auth()
     displayAccountInfo()
     groupsData = get_group_data()
+    
+    menuUserGroups, menuUserGroupItems = groupMenuInit(txtUserFrame, groupsData, menuUserGroups)
+    if menuUserGroupItems:
+        menuUserGroups.grid()
+    
     groupFilterList = []
     ## Update ComboBox
     groupFilterList.clear()
@@ -3028,10 +3125,97 @@ def menuButtonFeedback(idx):
     root.update()
 
 
-def menuButtons(idx):
+def update_users_attrib():
+    pass
+
+def presetCommand(presetIdx, command):
+    pass
+
+def buildPresetButton(presetName, menu_origin, origin, JSONtxt = ""):
+    global btnMenu
+    global frameSubMenuCtnrl
+    global frameControls
+    global menuButtonList
+    
+        
+    if presetName not in menuButtonList and presetName != "":
+        menuButtonList.append(presetName)
+        
+        #any appending to lists must match same index value as idx
+        idx = menuButtonList.index(presetName)
+        btn = stdButtonMenuStyle(\
+            menu_origin,
+            text=f'*{presetName}',
+            command = lambda idx_d = idx:  menuButtons(idx_d, presetName)
+        )
+    
+        btn.grid()
+    
+        btnMenu.append(btn)
+    else:
+        idx = menuButtonList.index(presetName)
+        
+        
+    logging(f'{menuButtonList}\n{len(frameSubMenuCntrl)}/{len(frameControls)}, Preset Button Index {idx}')
+    
+    #1. Create Submenu section (Actions Menu) frame
+    frameSubMenuCntrl.append(stdFrameSubMenuStyle(origin))
+    frameSubMenuCntrl[idx].propagate(0) 
+    frameSubMenuCntrl[idx].grid_remove()
+
+    #2. Create Controls section frame
+    frameControls.append(stdFrameControlStyle(origin))
+    frameControls[idx].grid(row = 0, column = 3, sticky = N+W)
+    frameControls[idx].propagate(0)
+    frameControls[idx].grid_remove()
+    
+    logging(f'Updated:  {len(frameSubMenuCntrl)}/{len(frameControls)}, Preset Button Index {idx}')
+    #3. Populate submenu with standard actions
+    btnAction = [0,0,0]
+    btnAction[0] = stdButtonStyle(\
+        frameSubMenuCntrl[idx],
+        text = 'Execute',
+        width = 20,
+        image = None,
+        command = lambda:presetCommand(idx, "execute")
+    )
+    
+    btnAction[1] = stdButtonStyle(\
+        frameSubMenuCntrl[idx],
+        text = 'Update',
+        width = 20,
+        image = None,
+        command = lambda:presetCommand(idx, "update")
+    )
+    
+    btnAction[2] = stdButtonStyle(\
+        frameSubMenuCntrl[idx],
+        text = 'Delete',
+        width = 20,
+        image = None,
+        command = lambda:presetCommand(idx, "delete")
+    )
+    stdButtonActionGrid(btnAction[0])
+    stdButtonActionGrid(btnAction[1])
+    stdButtonActionGrid(btnAction[2])
+    #4. Populate controls section with standard content (textbox)
+    eLblTemp = stdLabelStyle(frameControls[idx], text= f"PRESET SCRIPT {presetName.upper()}", theme = "title")
+    eTxtTemp = stdTextStyle(frameControls[idx], text = JSONtxt)
+    eLblTemp.grid(row = 0, sticky = N + W)
+    eTxtTemp.grid(row = 1)
+    
+def menuButtons(idx, btnName = None):
     global maxAppHeight
+    global menuButtonList
+    global frameSubMenuCntrl
+    
     menuButtonFeedback(idx)
     
+    if btnName != None:
+        if btnName not in menuButtonList:
+            menuButtonList.append(btnName)
+    
+    #Hide all controls and action menu items for all 
     for fControl in frameControls:
         try:
             fControl.grid_remove()
@@ -3045,9 +3229,12 @@ def menuButtons(idx):
             PrintException(e)
   
 
-  
-    frameSubMenuCntrl[idx].grid()
-    frameControls[idx].grid()        
+    try:
+        frameSubMenuCntrl[idx].grid()
+        frameControls[idx].grid()
+    except Exception as e:
+        PrintException(e)
+        
     #frameControls[idx].configure(height=frameControls[0]["height"],width=frameControls[0]["width"])
     #frameControls[idx].grid_propagate(0)
     
@@ -3091,40 +3278,51 @@ def menuButtons(idx):
     #logHeight = frameLog.winfo_height() 
     appFrameHeight = frameApp.winfo_height()
     statusHeight = frameStatus.winfo_height()
-    actionMenuHeight = frameSubMenuCntrl[idx].winfo_height()
     
+    try:
+        actionMenuHeight = frameSubMenuCntrl[idx].winfo_height()
+    except Exception as e:
+        actionMenuHeight = 0
+        PrintException(e)
+        
     #framesHeight =  - (logHeight + statusHeight)
     
     # Distance between action frame and log frame
     gapHeight = abs(appFrameHeight - actionMenuHeight)
-    sizeDiff = (maxAppHeight - (totalHeight + gapHeight))
     
-    
-    
-    if totalHeight < maxAppHeight:
-        diff = maxAppHeight - totalHeight
-    else:
-        diff = 0
+    try:
+        sizeDiff = (maxAppHeight - (totalHeight + gapHeight))
         
+        
+        
+        if totalHeight < maxAppHeight:
+            diff = maxAppHeight - totalHeight
+        else:
+            diff = 0
+    except Exception as e:
+        PrintException(e)
            
     #print (f'total: ({totalHeight}x{totalWidth}), update: {updateHeight}, size Diff {sizeDiff}, frame Height: {appFrameHeight}, action menu: {actionMenuHeight}, Gap: {gapHeight}')
     if diff > 4:
         #(col,row) = frameControls[0].grid_size
         #print(f'G0: {col}, {row}')
-      
-        btnSpacer = Button(\
-            frameSubMenuCntrl[idx],
-            text = "", 
-            bg= colorScheme['6'],
-            fg= colorScheme['6'],
-            pady = diff / 2,
-            highlightcolor = colorScheme['6'],
-            activebackground = colorScheme['6'],
-            activeforeground = colorScheme['6'],
-            relief='flat'            
-        )
-        #lbSpacer.resizable(width=False, height=False)
-        btnSpacer.grid()
+        try:
+            btnSpacer = Button(\
+                frameSubMenuCntrl[idx],
+                text = "", 
+                bg= colorScheme['6'],
+                fg= colorScheme['6'],
+                pady = diff / 2,
+                highlightcolor = colorScheme['6'],
+                activebackground = colorScheme['6'],
+                activeforeground = colorScheme['6'],
+                relief='flat'            
+            )
+            #lbSpacer.resizable(width=False, height=False)
+            btnSpacer.grid()
+        except Exception as e:
+            PrintException(e)
+            
         root.update()
         appHeight = root.winfo_height()
         print(f'Resized Height: {appHeight}')
@@ -3462,6 +3660,25 @@ def stdFrameSubMenuGrid(origin):
     
     origin.grid_columnconfigure(0, weight=1)
 
+def stdFrameControlStyle(origin, text = None, pady = 0, width = 200, height = 200):
+    objLabelFrame = LabelFrame(
+            origin,
+            bg= colorScheme['3'],
+            fg= colorScheme['1'],
+            highlightcolor = colorScheme['3'],
+            relief='flat',
+            labelanchor = N+W,
+            width= width,
+            height= height,
+            padx = 0,
+            pady = 0,
+            bd = 0,
+            font= ('verdana', 10, 'bold'),
+            text = text
+    )
+   
+    objLabelFrame.configure(height=324)
+    return objLabelFrame        
 
 def stdFrameSubMenuStyle(origin, text = None):
     objLabelFrame = LabelFrame(
@@ -3591,6 +3808,27 @@ def stdEntryStyle(origin, width = 15, textvariable = None, show = None ):
     
     return entryObj
 
+def stdTextStyle(origin, height = 20, width = 50, text = None, textvariable = None, show = None ):
+
+    textObj = Text(\
+        origin,
+        bd = 2,
+        bg= colorScheme['4'],
+        fg= colorScheme['3'],
+        font= stdFontStyle(),
+        textvariable = textvariable,
+        state = 'normal',
+        relief = 'groove',
+        height = height,
+        width = width
+    )
+    
+    textObj.insert('1.0', json.dumps(text, sort_keys=True, indent=4))
+    
+    return textObj
+
+
+
 def stdLabelStatusStyle(origin, text, textvariable, width = 26, theme = ""):
     
     objLabel = Label(\
@@ -3703,18 +3941,26 @@ def stdButtonActionStyle(origin, text = None, image = None, width = 30, command 
     return btnObj
         
 def preset_step():
+    global presets
+    
+    
     '''
     Planning:
     JSON Structure
     
         "Preset Name":
-            "step number":
-                "name":string,
-                "url":string,
-                "parameters":dict,
-                "body":dict,
-                "ids":dict,
-                
+            [
+                {
+                    "method":string,
+                    "url":string,
+                    "parameters":dict,
+                    "body":dict,
+                    "ids":dict,
+                    "response":dict,
+                    "chain":dict,
+                    "delay":int (optional, if 0 waits for response)
+                }
+             ]   
         A step can include data from previous step
         (I'm calling it attribute chaining)
         in the form of JSON dict data, like account id
@@ -3727,6 +3973,80 @@ def preset_step():
         of fields for the user to select one attribute to include in the
         next step (drop down selection?)
     '''
+    try:
+        txtName = etxtAPIPresetName.get()
+    except:
+        txtName = '__temp'
+        
+    try:
+        txtBody = json.loads(etxtAPIBody.get())
+        jsonBody = json.dumps(txtBody, sort_keys=True, indent=4)
+    except:
+        txtBody = None
+        jsonBody = None
+    
+    try:
+        txtParam = json.loads(etxtAPIParam.get())
+        jsonParam = json.dumps(txtParam, sort_keys=True, indent=0)
+        jsonParam = jsonParam.replace("\n   ","")
+        jsonParam = jsonParam.replace("\n","")
+        jsonParam = jsonParam.replace('\\"','"')
+    except:
+        txtParam = None
+        jsonParam  = None
+    
+    
+    try:
+        txtIDs = eTxtApiId.get()
+    except:
+        txtIDs = None
+    
+    try:
+        # headerURL
+        url =  f'{apiVer}{etxtAPI.get()}'
+    except:
+        url = None
+    
+    if txtName not in presets:
+        logging(f"Creating new preset {txtName}")
+        presets.update({txtName:[]})
+
+
+        
+    try:
+        response = \
+            send_REST_request(\
+                apiType = url,
+                body= txtBody,
+                param = txtParam,
+                rType = RESTmethod.get(),
+                note= f"Custom API temp preset step {txtName}",
+            )
+    except:
+        response = None
+    
+    logging(f'Response:{response}')
+    
+    
+    
+    try:
+        presetDict = {
+            "id":len(presets[txtName]) + 1,
+            "method":RESTmethod.get(),
+            "url":url,
+            "parameters":jsonParam,
+            "body":jsonBody,
+            "ids":txtIDs,
+            "chain":{},
+            "delay":0,
+            "response":{}
+        }
+        presets[txtName].append(presetDict)
+        
+    except Exception as e:
+        PrintException(e)
+    ## Break down response to a list popup with selection list of  item:value        
+    buildPresetButton(txtName, frameMenu, frameApp, JSONtxt =   presets[txtName])
     
 
 def preset_store():
@@ -3810,7 +4130,7 @@ def apiCommandPopulate(category, command):
             content = apiData[category][text]
             apiCommand.set(indexTxt)   
         else:
-            logging(f'Equivalent {category} command not listed in drop down menu')
+            logging(f'Equivalent {category} command not listed in drop down menu', debugOnly = True)
             content = text
             etxtAPI.insert(0,content)
             emenuAPICmd.insert(0, content)
@@ -4018,7 +4338,7 @@ frameMenu = LabelFrame(\
 
 frameSubMenuCntrl =  []
 
-for i in range(0,4):
+for i in range(0,5):
     frameSubMenuCntrl.append(
             stdFrameSubMenuStyle(frameApp)
         )
@@ -4028,21 +4348,8 @@ for i in range(0,4):
 
 frameControls = []
 
-for i in range(0,4):
-    frameControls.append(\
-        LabelFrame(\
-            frameApp,
-            bg= colorScheme['3'],
-            fg= colorScheme['1'],
-            highlightcolor = colorScheme['3'],
-            relief='flat',
-            labelanchor = N+W,
-            width=200,
-            height=200,            
-            font= ('verdana', 10, 'bold'),
-            text = ""
-        )
-    )
+for i in range(0,5):
+    frameControls.append(stdFrameControlStyle(frameApp))
     frameControls[i].propagate(0)
     
 
@@ -4251,11 +4558,21 @@ btnSettingsStats = stdButtonStyle(
     )
 
 
+btnAcctAttribs = stdButtonStyle(
+    frameSubMenuCntrl[1],
+    text = "Update Custom Attribute for all filtered users",
+    width = 25,
+    command = update_users_attrib,
+    state = DISABLED
+    )
+
+
 stdButtonActionGrid(btnRetrieve)
 stdButtonActionGrid(btnOpen)
 stdButtonActionGrid(btnOpenDelete)
 stdButtonActionGrid(btnDeleteInactive)
 stdButtonActionGrid(btnSettingsStats)
+stdButtonActionGrid(btnAcctAttribs)
 
 
 frameAccount.append(stdLabelFrameStyle(\
@@ -4270,6 +4587,16 @@ frameProcess = LabelFrame(\
     bg = colorScheme['3'],
     fg = colorScheme['1'],    
     text = "Restart Processing"
+    )
+
+
+frameAttribs = LabelFrame(\
+    frameAccount[-1],
+    padx = 0,
+    pady = 0,
+    bg = colorScheme['3'],
+    fg = colorScheme['1'],    
+    text = "Custom Attributes"
     )
 
 
@@ -4338,12 +4665,34 @@ frameProcess.grid(\
             sticky = NSEW
         )
 
+frameAttribs.grid(\
+            row = pos(1,rowPos),
+            column = colPos,
+            #columnspan = frColumns+1,
+            sticky = NSEW
+        )
 
 elblProcEmail = stdLabelStyle(frameProcess, text="Email")
 etxtProcEmail = stdEntryStyle(frameProcess)
 elblProcEmail.grid(row = pos(0,rowPos), column = posC(0,colPos), sticky = NSEW)
 etxtProcEmail.grid(row = rowPos, column = posC(1,colPos), sticky = E)
 
+
+
+
+customAttrib = StringVar()
+customAttribList = ["None"]
+customAttrib.set(customAttribList[0])
+
+elblAttribSet = stdLabelStyle(frameAttribs, text="Set ")
+emenuAttrib = ttk.Combobox(frameAttribs, textvariable=customAttrib, values=customAttribList)
+elblAttribTo = stdLabelStyle(frameAttribs, text=" to ")
+etxtAttrib = stdEntryStyle(frameAttribs)
+
+elblAttribSet.grid(row = pos(0,rowPos), column = posC(0,colPos), sticky = NSEW)
+emenuAttrib.grid(row = rowPos, column = posC(1,colPos), sticky = E)
+elblAttribTo.grid(row = rowPos, column = posC(1,colPos), sticky = E)
+etxtAttrib.grid(row = rowPos, column = posC(1,colPos), sticky = E)
 
 
 
@@ -4391,57 +4740,25 @@ lblStatusAPI.grid(\
 
 
 btnMenu = []
+menuButtonList = ['Settings', 'Account Level', 'User Level', 'Custom API', 'LDAP']
 
-btn = stdButtonMenuStyle(\
-    frameMenu,
-    text='Settings',
-    command = lambda: menuButtons(0)
-    )
-
-btnMenu.append(btn)
-
-btn = stdButtonMenuStyle(\
-    frameMenu,
-    text="Account Level",
-    command= lambda: menuButtons(1)
-    )
-
-btnMenu.append(btn)
-
-
-btn = stdButtonMenuStyle(\
-    frameMenu,
-    text="User Level",
-    command= lambda: menuButtons(2)
-    )
-
-btnMenu.append(btn)
-
-btn = stdButtonMenuStyle(\
-    frameMenu,
-    text="Custom API",
-    command= lambda: menuButtons(3)
-    )
-
-btnMenu.append(btn)
-
-btn = stdButtonMenuStyle(\
-    frameMenu,
-    text="LDAP",
-    command= lambda: menuButtons(3)
-    )
-
-btnMenu.append(btn)
-
-for btnItem in btnMenu:
-    btnItem.grid(\
+for btnItem in menuButtonList:
+    menuIdx = menuButtonList.index(btnItem)
+    
+    btnMenu.append(stdButtonMenuStyle(\
+        frameMenu,
+        text = menuButtonList[menuIdx],
+        command = lambda menuIdx_d = menuIdx: menuButtons(menuIdx_d)
+        ))
+    
+    btnMenu[-1].grid(\
         row = pos(2,rowPos),
         rowspan = 2,
         column = posC(0,colPos),
         columnspan = 2,
         sticky = NSEW
     )
-
+    
 
 logData = StringVar(frameLog)
 logData.set("Program Started")
@@ -4471,7 +4788,6 @@ btnCancel.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = W)
 
 btnClearLog = stdButtonStyle(frameLog, text="Clear log", width=15, command=clearLog)
 btnClearLog.grid(row = rowPos, column = posC(1,colPos), sticky = W)
-
 
 
 
@@ -4612,7 +4928,10 @@ lblUserPicURL.grid(row = pos(1,rowPos), column = 0, sticky = E)
 lblUserPicLink.grid(row = rowPos, column = 1, columnspan=2, sticky = W)
 
 
-
+(menuUserGroups, menuUserGroupItems) = groupMenuInit(txtUserFrame)
+menuUserGroups.grid(row = pos(1,rowPos), column = 1, sticky = W)
+menuUserGroups.grid_remove()
+    
 userRoleValue = StringVar()
 lblUserRole = stdLabelStyle(txtUserFrame, text = "User Role")
 userRoleList = []
@@ -4715,7 +5034,15 @@ frameAPI.grid(\
         )
 
 
+
+elblAPIURL = stdLabelLinkStyle(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
+elblAPIURL.bind("<Button-1>", lambda e: urlOpen("https://marketplace.zoom.us/docs/api-reference/zoom-api"))
+elblAPIURL.grid(row = pos(0,rowPos), column= 0, columnspan=6, sticky = NSEW)
+
 (apiData, apiCommandsList, sbAPIList, apiCategory, apiMenu) = apiListMenu(frameSubMenuCntrl[3])
+
+
+
 
 RADIOMODES = [\
         ("POST", "post"),
@@ -4728,7 +5055,7 @@ RADIOMODES = [\
 RESTmethod = StringVar()
 RESTmethod.set("get") # initialize
 
-rowPos = 0
+rowPos = 1
 colPos = 0
 for text, mode in RADIOMODES:
     apiRadioBtn = Radiobutton(frameAPI, text=text,
@@ -4795,8 +5122,6 @@ elblAPIBody = stdLabelStyle(frameAPI, text="Body (JSON)")
 etxtAPIBody = stdEntryStyle(frameAPI)
 
 
-elblAPIURL = stdLabelLinkStyle(frameAPI, text="https://marketplace.zoom.us/docs/api-reference/zoom-api")
-elblAPIURL.bind("<Button-1>", lambda e: urlOpen("https://marketplace.zoom.us/docs/api-reference/zoom-api"))
 elblAPI = stdLabelStyle(frameAPI, text="Commmand (URL End)")
 etxtAPI = stdEntryStyle(frameAPI)
     
@@ -4812,18 +5137,35 @@ etxtAPIParam.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 elblAPIBody.grid(row = pos(1,rowPos), column= 0, columnspan=2, sticky = E)
 etxtAPIBody.grid(row = rowPos, column = 2, columnspan=4, sticky = W)
 
-elblAPIURL.grid(row = pos(1,rowPos), column= 0, columnspan=6, sticky = NSEW)
-
 btnAPIUpdate = stdButtonStyle(frameAPI, text="SEND", width=10, command=customAPI)
-btnAPIUpdate.grid(row = 0, rowspan=4, column = 5, sticky = E)
+btnAPIUpdate.grid(row = 3, rowspan=4, column = 5, sticky = E)
 
 
-frameApiPresets = stdEntryStyle(frameAPI)
-frameApiPresets.grid(row = pos(1,rowPos), columnspan = 6, column= 0,)
-btnApiPresetAdd = stdButtonStyle(frameApiPresets, text="Add Step to Preset", command=customAPI)
-btnApiPresetAdd.grid(row = pos(1,rowPos), rowspan = 2, column = 0, sticky = E)
-btnApiPresetSave = stdButtonStyle(frameApiPresets, text="Save Preset", command=customAPI)
-btnApiPresetSave.grid(row = rowPos, rowspan=2, column = 2, sticky = E)
+frameApiPresets = stdFrameControlStyle(frameAPI, pady = 10)
+frameApiPresets.grid(row = pos(1,rowPos), columnspan = 6, column= 0, sticky = W)
+
+elblAPIPresetName = stdLabelStyle(frameApiPresets, text="Preset Name")
+etxtAPIPresetName = stdEntryStyle(frameApiPresets)
+    
+elblAPIPresetName.grid(row = pos(0,rowPos), column= 0, columnspan = 2, sticky = W)
+etxtAPIPresetName.grid(row = rowPos, column = 0, columnspan = 2, sticky = E)
+
+btnApiPresetAdd = stdButtonStyle(frameApiPresets, text="Add Step to Preset", command=preset_step)
+btnApiPresetAdd.grid(row = pos(1,rowPos), column = 0, sticky = E)
+btnApiPresetSave = stdButtonStyle(frameApiPresets, text="Clear Preset Data", command=customAPI)
+btnApiPresetSave.grid(row = pos(1,rowPos), column = 0, sticky = E)
+
+
+
+
+btnLDAPList = stdButtonStyle(\
+    frameSubMenuCntrl[4],
+    text = 'List Attributes',
+    width = 20,
+    image = None,
+    command = openCredentials
+    )
+stdButtonActionGrid(btnLDAPList)
 
 
 #screenHeight = root.winfo_screenheight() 
