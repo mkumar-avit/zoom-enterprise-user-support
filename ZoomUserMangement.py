@@ -109,8 +109,7 @@ tokenError = True
 localTimeZone = tzlocal.get_localzone().zone
 dateInactiveThreshold = datetime.datetime.now()
 leaseTime = 2
-colors =\
-       {
+colors = {
            'blue':'#51608C',
            'gray':'#8697A6',
            'blue-gray':'#BFCDD9',
@@ -119,8 +118,7 @@ colors =\
         }
 
 
-colorScheme =\
-       {
+colorScheme = {
            '0':'#000000',
            '1':'#FFFFFF',
            '22':'#BFBDBC',
@@ -138,8 +136,7 @@ colorScheme =\
         }
 
 
-dateStr=\
-    {
+dateStr= {
         'log':'%m/%d/%y %H:%M:%S.%f',
         'std':'%m/%d/%Y %H:%M:%S',
         'user':'%m/%d/%YT%H:%M:%S',
@@ -152,8 +149,7 @@ dateStr=\
 
 headerURL = 'https://api.zoom.us/'
 apiVer = 'v2'
-apiURL =\
-    {
+apiURL = {
         'users': 'v2/users',
         'user':'v2/users/@',
         'groups': 'v2/groups',
@@ -844,6 +840,14 @@ def get_user_meetings(userID):
 
 
 def logoutUser():
+    """ Will trigger the revocation of SSO token for user, and in effect, log user out
+        of all devices they are logged into for Zoom.  User email address is pulled from
+        User Email Address tkinter text entry field.
+       
+    Args:  None
+    
+    Returns:  None
+    """            
     global userDB
     
     userID = get_userID(userEmailAddr.get())
@@ -956,8 +960,6 @@ def get_UserInfo(user):
         menuUserGroupItems[item]['type'].set(0)
         
     menuUserGroupItems[group]['type'].set(1)
-    
-    
     
     userInfo = send_REST_request('user', data=userId, rType = "get", note="Getting user info")
     
@@ -2097,7 +2099,9 @@ def get_acct_settings():
         PrintException(e)
        
     return acctSettings
-      
+
+
+
 def get_user_settings(userId, type = 2, count = 0):   
     userSettings = None
     
@@ -2133,7 +2137,61 @@ def get_user_settings(userId, type = 2, count = 0):
     print (f"####User Settings####\n{userSettings}")
     return userSettings
 
+def populateCustomAttributes():
+    """Retrieves a single users data to see what custom attributes are applied to the Zoom account
+       and updates the tkinter combobox with the values.
+       
+    Args:  None
+           
+    Returns:  List of the custom attribute names
+    """
+    global customAttribList
+    global customAttrib
+    global emenuAttrib
+    
+    userInfo = list_user_data()
+    customAttribList.clear()
+    
+    for user in userInfo['users']:
+        for attrib in user['custom_attributes']:
+           
+            customAttribList.append(attrib['name'])     
+    
+    logging(f"Custom Attributes Found: {customAttribList}")        
+    customAttrib.set(customAttribList[0])
+    emenuAttrib['values'] = customAttribList
+    root.update()
+    
+    return customAttribList
 
+    
+def list_user_data(records = 1, pageNumber = 0):
+    """Retrieve page of user records (list users zoom api command)
+       
+    Args:  records (integer), number of records per page, max 300
+           pageNumber (integer), page number of recordset to retrieve (may change to nextpagetoken in future)
+           
+    Returns:  Dictionary of the page of user data
+    """
+    
+    pageData = None
+    
+    JSONData = {
+        'status': "",
+        'page_size': records,
+        'role_id': "",
+        'include_fields': "custom_attributes",
+        'page_number': str(pageNumber)
+        }           
+
+    try:
+        pageData = send_REST_request('users', param = JSONData, rType = "get")
+    except Exception as e:
+        pageData = None
+        print('Exception:{}'.format(e))       
+    
+    return pageData
+    
 def get_user_data(userId):
 
     user_data = None
@@ -2168,22 +2226,9 @@ def get_users_data(groupsDict):
     data = None
     print ('Groups:  {}'.format(groupsDict))
        
-    pageSize = 1
-    JSONData = {\
-        'status':"",
-        'page_size':pageSize,
-        'role_id':"",
-        'page_number':'0'
-        }
     
-            
 
-    try:
-        page_data = send_REST_request('users', param = JSONData, rType = "get")
-    except Exception as e:
-        page_data = None
-        print('Exception:{}'.format(e))    
-  
+    page_data = list_user_data(records = 1, pageNumber = 0)
   
   
   
@@ -2234,23 +2279,9 @@ def get_users_data(groupsDict):
                     
                     
                     
-                    JSONData = {\
-                        'status':"",
-                        'page_size':pageSize,
-                        'role_id':"",
-                        'page_number':str(page)
-                    }
-                    
                     #logging("Pulling: {}".format(JSONData))
                     
-                    try:
-                        user_data = send_REST_request('users', param = JSONData, rType = "get")
-                    
-                        #user_data = requests.get(url=url, headers=authHeader).json()
-                        #userInactive = [userID,userLoginMonths, userFirstName, userLastName]
-                        
-                    except Exception as e:
-                        logging('User Data pull error: {}'.format(e))
+                    page_data = list_user_data(pageSize, page)
                         
                     
                     try:
@@ -2443,9 +2474,7 @@ def get_users_data(groupsDict):
                                     licenseCnt['flagged'][userLicense] += 1
                                 except:
                                     licenseCnt['flagged'][userLicense] = 1
-                                    
-                            writer.writerow(
-                                {
+                            userCSVData = {
                                     'flag': flagUser[0],
                                     'user_id':userID,
                                     'email': userEmail,
@@ -2457,7 +2486,9 @@ def get_users_data(groupsDict):
                                     'group':userGroup,
                                     'license':userLicense
                                 }
-                            )
+                            
+                            
+                            writer.writerow(userCSVData)
                             #print ('Last Recorded Zoom version for {}: {}'.format(userEmail,userLastClientVer))
                             flagUser = ['None','None']
                         
@@ -2562,6 +2593,7 @@ def displayAccountInfo():
     (cloudUsage,cloudStorage) = getAccountInfo(desc = "Retrieving Account Status...")
     statusLicense.set(cloudUsage)
     statusCloud.set(cloudStorage)
+    populateCustomAttributes()
     logging("...Finished retrieving account status, data shown in status bar below")
 
 def getAccountInfo(desc):
