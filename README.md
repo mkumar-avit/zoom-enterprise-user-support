@@ -6,6 +6,7 @@ I will be working on updates to this sporadically throughout November 2020 as ot
 ## Latest Updates (November 24th, 2020)
 PM
 - Updated Custom Attributes combo menu on Account Actions page to populate with values after triggering the Account Info button on the settings page. 
+
 AM
 - Added account lock settings to be pulled and added into group settings file.  Also added timestamp to group settings file to be able to track changes over time.
 - Working on custom API presets, still a work in progress so it is not fully functional nor does the gui have all the finalized features yet.
