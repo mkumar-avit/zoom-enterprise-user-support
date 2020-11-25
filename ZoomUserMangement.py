@@ -532,6 +532,11 @@ def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames
 
 
 def actionBtnsState(state):
+    global btnDeleteInactive
+    global btnOpenDelete
+    global btnSettingsStats
+    global btnAcctAttribs
+    
     if state == 'enabled':
         btnDeleteInactive["state"] = "normal"
         btnOpenDelete["state"] = "normal"
@@ -1289,7 +1294,62 @@ def UpdateUser_Licensed():
             userCurrLicense = user[licenseIdx] 
             modify_user_license(userID,userEmail, userCurrLicense, userType=licNo)
             break            
+
+def filterUser(user):
+    userGroup = user[7]
+    userLicense = user[8]
+    months = user[9]
     
+    
+    chkParam = [False, False, False, False, False]
+
+    userGroup = extract_group(userGroup)
+    group = filterGroup.get()
+
+
+    if group == 'All Users':
+        group = None
+    elif group == 'Users in no Groups':
+        group = 'No Group'
+        
+    if group is not None and userGroup != group:
+        chkParam[4] = True            
+
+    if chkActivity.get() == 1 and chkParam[4] == False:
+        try:
+            monthsActive = int(eActiveUser.get())
+        except:
+            monthsActive = 0
+       
+        if months <= monthsActive :
+            chkParam[0] = True
+                
+    if chkRec.get() == 1 and chkParam[4] == False:
+        try:
+            recMonths = int(eRecMonths.get())
+        except:
+            recMonths = 0
+        
+        recordings = check_user_recording_count(user[userIdIdx])
+        
+        if recordings > 0:
+            chkParam[1] = True
+       
+        logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
+        
+    if chkMeetings.get() == 1 and chkParam[4] == False:
+        (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIdIdx])
+        if meetingScheduled > 0:
+            chkParam[2] = True
+
+    if chkBasic.get() == 1:
+        chkParam[3] = True
+
+
+    testing = logConfig['test'].get()
+    
+    return (testing, chkParam)
+
 def xref_UpdateUser(userList):
     emailIdx = 1
     userIdIdx = 2
@@ -1318,55 +1378,9 @@ def xref_UpdateUser(userList):
         userCount += 1
         for user in userDB:
             if user[emailIdx] == email:
-                userGroup = user[7]
                 userLicense = user[8]
-                months = user[9]
                 
-                if chkActivity.get() == 1:
-                    try:
-                        monthsActive = int(eActiveUser.get())
-                    except:
-                        monthsActive = 0
-                   
-                    if months <= monthsActive:
-                        chkParam[0] = True
-                            
-                if chkRec.get() == 1:
-                    try:
-                        recMonths = int(eRecMonths.get())
-                    except:
-                        recMonths = 0
-                    
-                    if months < recMonths:
-                        recordings = check_user_recording_count(user[userIdIdx])
-                    
-                    if recordings > 0:
-                        chkParam[1] = True
-                   
-                    logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
-                    
-                if chkMeetings.get() == 1:
-                    (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIdIdx])
-                    if meetingScheduled > 0:
-                        chkParam[2] = True
-                
-                if chkBasic.get() == 1:
-                    chkParam[3] = True
-            
-                 
-                group = filterGroup.get()
-                
-                if group == 'All Users':
-                    group = None
-                elif group == 'Users in no Groups':
-                    group = 'No Group'
-                    
-                if group != None:
-                    if user[groupIdx] == group or group == None:
-                        chkParam[4] = False
-                    else:
-                        chkParam[4] = True
-                 
+                (testing, chkParam) = filterUser(user)
                  
                 try:
                     if True not in chkParam:
@@ -1381,7 +1395,7 @@ def xref_UpdateUser(userList):
                         # no other parameters are true
                         chkParam[3] = False
                         if True not in chkParam:
-                            if logConfig['test'].get() == 0:
+                            if testing == 0:
                                 modify_user_license(user[userIdIdx],email, userLicense)
                             else:
                                 logging(f"TESTING:  {email} is being modified to {userLicense}.")
@@ -1397,8 +1411,9 @@ def xref_UpdateUser(userList):
         progress_var.set(int((userCount/userEmails)*100))            
     else:
         logging("No users to remove")
-    logging("Finished removing users....")
-
+    logging("Finished removing users....")                    
+                
+    
 def start_modify_user(email):
     emailIdx = 1
     userIdIdx = 2
@@ -1416,6 +1431,7 @@ def start_modify_user(email):
     noDeletes = None
     
     chkParam = [False, False, False, False, False]   
+    
     for user in userDB:
         if user[emailIdx] == email:
             userGroup = user[7]
@@ -1424,53 +1440,12 @@ def start_modify_user(email):
             
             modifyLicense = "Basic"
             
-            userGroup = extract_group(user[groupIdx])
-            
-            group = filterGroup.get()
-            
-            if group == 'All Users':
-                group = None
-            elif group == 'Users in no Groups':
-                group = 'No Group'
-                
-            if group is not None and userGroup != group:
-                chkParam[4] = True            
-            
-            if chkActivity.get() == 1 and chkParam[4] == False:
-                try:
-                    monthsActive = int(eActiveUser.get())
-                except:
-                    monthsActive = 0
-               
-                if months <= monthsActive :
-                    chkParam[0] = True
-                        
-            if chkRec.get() == 1 and chkParam[4] == False:
-                try:
-                    recMonths = int(eRecMonths.get())
-                except:
-                    recMonths = 0
-                
-                recordings = check_user_recording_count(user[userIdIdx])
-                
-                if recordings > 0:
-                    chkParam[1] = True
-               
-                logging('{}: {} has {} recordings and last logged in {} months ago'.format(userGroup,email,recordings,months))
-                
-            if chkMeetings.get() == 1 and chkParam[4] == False:
-                (meetingsAllCnt, meetingCnt, meetingScheduled) = get_user_meetings(user[userIdIdx])
-                if meetingScheduled > 0:
-                    chkParam[2] = True
-            
-            if chkBasic.get() == 1:
-                chkParam[3] = True
-        
+            (testing, chkParam) = filterUser(user)
                             
             try:
                 if True not in chkParam:
                     # No checkboxes, and group matches, just delete
-                    if logConfig['test'].get() == 0:
+                    if testing == 0:
                         delete_user(user[userIdIdx],userEmail)
                     else:
                         logging(f"TESTING: {user[groupIdx]},{email} is being deleted.")
@@ -1480,7 +1455,7 @@ def start_modify_user(email):
                     # no other parameters are true
                     chkParam[3] = False
                     if True not in chkParam:
-                        if logConfig['test'].get() == 0:
+                        if testing == 0:
                             modify_user_license(user[userIdIdx],email, userLicense)
                         else:
                             logging(f"TEST: {user[groupIdx]}, {email} is being modified to {modifyLicense}.")
@@ -2154,8 +2129,8 @@ def populateCustomAttributes():
     
     for user in userInfo['users']:
         for attrib in user['custom_attributes']:
-           
-            customAttribList.append(attrib['name'])     
+            value = f"{attrib['name']}, {attrib['key']}"
+            customAttribList.append(value)     
     
     logging(f"Custom Attributes Found: {customAttribList}")        
     customAttrib.set(customAttribList[0])
@@ -2226,12 +2201,9 @@ def get_users_data(groupsDict):
     data = None
     print ('Groups:  {}'.format(groupsDict))
        
-    
 
     page_data = list_user_data(records = 1, pageNumber = 0)
-  
-  
-  
+    
     if page_data != None:
         try:
             pageSize = 300
@@ -2248,7 +2220,7 @@ def get_users_data(groupsDict):
             
         logging('Retrieving {} user records'.format(recordsTotal))
         logging('Pages of data: {}'.format(pageCount))
-        
+        actionBtnsState('enabled')
         # results will be appended to this list
         all_entries = []
         # loop through all pages and return user data
@@ -2277,18 +2249,16 @@ def get_users_data(groupsDict):
                     flagUser = ['None','None']
                     startTime[cntTime] = time.time()
                     
-                    
-                    
                     #logging("Pulling: {}".format(JSONData))
                     
-                    page_data = list_user_data(pageSize, page)
+                    user_data = list_user_data(pageSize, page)
                         
                     
                     try:
                         for user in user_data['users']:
                             record_count += 1
                             progress_var.set(int((record_count/recordsTotal)*100))
-                            
+                            root.update()
                             
                             try:
                                 userEmail = user['email']
@@ -2533,8 +2503,7 @@ def get_users_data(groupsDict):
                     if runAvg == 0:
                         runAvg = (endTime[0]-startTime[0]) * (total_pages - page)        
                     
-                    #progress.step(int((page/total_pages)*100))
-                    
+                    progress.step(int((page/total_pages)*100))
                     root.update()
                     #root.update_idletasks()
                     
@@ -2616,10 +2585,17 @@ def getAccountInfo(desc):
         remainingNow = planLicenses - planUsers
         remainingPct = round(((remainingNow / planLicenses) * 100),2)
         
-        licenseInfo =  f"Licenses: {remainingPct}%, ({remainingNow:,}/{planLicenses:,})"
+        licenseInfo =  f"Licenses: {remainingPct}% ({remainingNow:,}/{planLicenses:,})"
         cloudStorage = planInfo["plan_recording"]["free_storage"]
         cloudUsage = planInfo["plan_recording"]["free_storage_usage"]
-        cloudInfo = f"Storage: {cloudUsage} / {cloudStorage}"
+        
+        try:
+            cloudExceed = f"(+{planInfo['plan_recording']['plan_storage_exceed']})"
+        except:
+            cloudExceed = ""
+            
+        cloudInfo = f"{cloudUsage}{cloudExceed}/{cloudStorage}"
+    
         return (licenseInfo,cloudInfo)
     except Exception as e:
         print ("Exception in License info: {}".format(e))
@@ -2936,7 +2912,7 @@ def clearLog():
     listbox.delete(0,END)    
 
 
-def callback():
+def retrieveZoomUsers():
     global listbox
     global userDB
     global cancelAction
@@ -2944,15 +2920,25 @@ def callback():
     global menuUserGroups
     global menuUserGroupItems
     
+    #Time the completion of the function
     startTime = time.time()
+    
+    #Reset the cancelActions button
     cancelActions(False)
+    
+    #Clear zoom user list dictionary
     userDB.clear()
+    
+    #Set log scrollbox to top (latest log item)
     listboxTop()
     #listbox.delete(0,END)
-    zoom_token_auth()
-    displayAccountInfo()
-    groupsData = get_group_data()
     
+    zoom_token_auth()
+    #get basic account info
+    displayAccountInfo()
+    
+    #get account group information
+    groupsData = get_group_data()
     menuUserGroups, menuUserGroupItems = groupMenuInit(txtUserFrame, groupsData, menuUserGroups)
     if menuUserGroupItems:
         menuUserGroups.grid()
@@ -2965,14 +2951,18 @@ def callback():
         groupFilterList.append(groupsData[group])
         
     emenuGroupFilter['values'] = groupFilterList
-     
+    
     get_groups_settings(groupsData)
-            
-    #testdata
+    
+    
+    #Retrieve all zoom user data
     data = get_users_data(groupsData)
+    
+    #Calculate overall time 
     endTime = time.time()
     timeTotal = endTime - startTime
-    #btn.set(f"Retrieve all users: {((timeTotal*(len(userDB)))/60):.3f}mins")          
+    #btn.set(f"Retrieve all users: {((timeTotal*(len(userDB)))/60):.3f}mins")    
+    
     cancelActions('reset')
 
 def get_InactiveDate():
@@ -3158,8 +3148,74 @@ def menuButtonFeedback(idx):
 
 
 def update_users_attrib():
-    pass
+    global cancelAction
+    
+    def updateAttributeNow(userId, email, name, key, value):
+        if logConfig['test'].get() == 0:
+            update_user_attrib(userId, name, key, value)
+        else:
+            logging(f"TESTING: {email}'s {name} is being updated to {value}.")   
+    
+    emailIdx = 1
+    userIdIdx = 2
+    email = ""
+    userCount = 0
+    value = etxtAttrib.get()
+    key = emenuAttrib.get().split(', ')
+    chkParam = [False, False, False, False, False]
+    
+    progress_var.set(0)
+    
+    logging(f"Updating custom attribute {key[0]} based on filters")
+    cancelActions(False)
+    
+    for user in userDB:
+        if cancelAction is True:
+            cancelAction = False
+            break
+        
+        userCount += 1
+        email = user[emailIdx]
+            
+        userId = user[userIdIdx]
+        (testing, chkParam) = filterUser(user)
+         
+        try:
+            if True not in chkParam:
+                # No checkboxes, and group matches, just update
+                updateAttributeNow(userId, email, key[0], key[1], value)
+            elif chkParam[3] is True:
+                # If only No Deletes is enabled then just update
+                chkParam[3] = False
+                if True not in chkParam:
+                    updateAttributeNow(userId, email, key[0], key[1], value)     
+        except Exception as e:
+            logging(f'Error Updating User: {e}')      
+        
+        progress_var.set(int((userCount/len(userDB))*100))
+        root.update()
+    
+    logging(f"Finished updating {userCount} users....")
+    
+    
+    
 
+    
+
+def update_user_attrib(userId, name, key, value):
+    
+    apiBody = {
+        'custom_attributes':
+            [{
+                'name':name,
+                'key':key,
+                'value':value
+            }]
+    }
+    
+    send_REST_request('user', data=userId, body = apiBody, rType = "patch")  
+
+    
 def presetCommand(presetIdx, command):
     pass
 
@@ -4446,7 +4502,7 @@ frameLog.grid(\
 frameStatus.grid(\
         row = 1,
         column = posC(0,colPos),
-        columnspan = colPosMax + 2,
+        columnspan = colPosMax + 3,
         sticky = E
         )
 
@@ -4562,7 +4618,7 @@ btnOpenDeleteText = StringVar()
 btnDeleteInactiveText = StringVar()
 btnSettingsText = StringVar()
 
-btnRetrieve = stdButtonStyle(frameSubMenuCntrl[1], text = "Retrieve All User Data", width = 25, command = callback)
+btnRetrieve = stdButtonStyle(frameSubMenuCntrl[1], text = "Retrieve All User Data", width = 25, command = retrieveZoomUsers)
 btnOpen = stdButtonStyle(frameSubMenuCntrl[1], text = "Open All User Data", image = iconFolder, width = 25, command = csvOpen, state = DISABLED)
 btnOpenDelete = stdButtonStyle(\
     frameSubMenuCntrl[1],
@@ -5216,12 +5272,12 @@ statusCloud = StringVar(value = "Cloud Storage:  No Data")
 statusZoom = StringVar(value = "No Communication")
 
 lblStatus = {
-    'connection':stdLabelStatusStyle(frameStatus, textvariable = statusZoom, text="No Communication"),
+    'connection':stdLabelStatusStyle(frameStatus, width = 15, textvariable = statusZoom, text="No Communication"),
     'license':stdLabelStatusStyle(frameStatus, width = 30, textvariable = statusLicense, text="Licenses:  No Data"),
     'cloud':stdLabelStatusStyle(frameStatus, textvariable = statusCloud, text="Cloud Storage:  No Data") 
     }
 
-colPos = 0
+colPos = -1
 
 for lbl in lblStatus:
     lblStatus[lbl].grid(row = 0, column = posC(1,colPos), sticky = W)
