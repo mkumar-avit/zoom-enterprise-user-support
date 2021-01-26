@@ -3,14 +3,12 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout November 2020 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets.
 
-## Latest Updates (November 24th, 2020)
-Evening:
+## January 26th, 2020 Update
+- Added ability to retrieve account cloud recording metadata and find cloud recordings if the user was a participant in the meeting.  This may take time to do if there are many cloud recordings on the account.  Directory creation isn't effective yet and button disabling will be needed based on sequence (scan metadata, find user in those meetings).
+
+## November 24th, 2020 Update
 - Allow custom attribute values to be set to group of users based on the filtering set in the Account actions page.  Minor update with Cloud storage readout to include overage amount on paid plans
-
-Afternoon:
 - Updated Custom Attributes combo menu on Account Actions page to populate with values after triggering the Account Info button on the settings page. 
-
-Morning
 - Added account lock settings to be pulled and added into group settings file.  Also added timestamp to group settings file to be able to track changes over time.
 - Working on custom API presets, still a work in progress so it is not fully functional nor does the gui have all the finalized features yet.
 
