@@ -5,7 +5,7 @@ I will be working on updates to this sporadically throughout 2021 as other proje
 
 
 ## January 27th, 2021 Update
-- Fixes and improvements to last update along with a work in progress of opening CSV files of revocrding metadata.
+- Fixes and improvements to last update along with a work in progress of opening CSV files of recording metadata.
 ## January 26th, 2021 Update
 - Added ability to retrieve account cloud recording metadata and find cloud recordings if the user was a participant in the meeting.  This may take time to do if there are many cloud recordings on the account.  Directory creation isn't effective yet and button disabling will be needed based on sequence (scan metadata, find user in those meetings).
 
