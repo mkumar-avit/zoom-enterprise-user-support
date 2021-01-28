@@ -3,6 +3,9 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout 2021 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets and bug fixes.   My code is not very object-oriented as well so some fine tuning of code to get it aligned with more modern and Pythonic practices will eventually come.
 
+
+## January 27th, 2021 Update
+- Fixes and improvements to last update along with a work in progress of opening CSV files of revocrding metadata.
 ## January 26th, 2021 Update
 - Added ability to retrieve account cloud recording metadata and find cloud recordings if the user was a participant in the meeting.  This may take time to do if there are many cloud recordings on the account.  Directory creation isn't effective yet and button disabling will be needed based on sequence (scan metadata, find user in those meetings).
 
