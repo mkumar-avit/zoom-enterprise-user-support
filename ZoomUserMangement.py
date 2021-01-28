@@ -78,11 +78,11 @@ import jwt
 import linecache
 import os
 import requests
-from urllib.request import urlopen
-from urllib.request import urlretrieve
-import wget
-import cgi
-import cgitb
+#from urllib.request import urlopen
+#from urllib.request import urlretrieve
+#import wget
+#import cgi
+#import cgitb
 import time
 import webbrowser
 from dateutil.relativedelta import relativedelta
@@ -91,7 +91,10 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 
-cgitb.enable(display=0, logdir="/")
+import threading
+
+
+#cgitb.enable(display=0, logdir="/")
 
 ## GLOBAL CONSTANTS ##
 FROM_ZONE = tz.tzutc()
@@ -100,6 +103,7 @@ TO_ZONE = tz.tzlocal()
 API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
+RECDATA_FILE = "Zoom-UserRecMetaData"
 API_FILE = 'ZoomAPI.json'
 SETTINGS_FILE = "Zoom Group Setting Tracking"
 ## GLOBAL VARIABLES ##
@@ -192,6 +196,16 @@ acctRec = {}
 
 invalidChar = [':', ';', '|', ',', '?', '<', '>', '*', '.', '"', '/', '\\', '[', ']']
 ####################################
+
+
+def guiUpdate():
+    global root
+    if cancelAction is True:
+        root.update()
+
+
+
+
 
 def logging(logText ,save=True, debugOnly = False):
     """Method meant to display text in Tkinter listbox and print data, with a
@@ -932,6 +946,53 @@ def download_file(url, fileType, mtype = "", user = "", topic = "", topicId = ""
    #     logging(f"Error in download attempt method 3")
 
 
+def popup_listbox(title = "", instruction = "", listData = []):
+    window = Tk() 
+    window.title(title) 
+      
+    # for scrolling vertically 
+    yscrollbar = Scrollbar(window) 
+    yscrollbar.pack(side = RIGHT, fill = Y) 
+      
+    label = Label(window, 
+                  text = f"{instruction}:", 
+                  font = ("Times New Roman", 10),  
+                  padx = 10, pady = 10) 
+    label.pack() 
+    list = Listbox(window, selectmode = "multiple",  
+                   yscrollcommand = yscrollbar.set) 
+      
+    # Widget expands horizontally and  
+    # vertically by assigning both to 
+    # fill option 
+    list.pack(padx = 10, pady = 10, 
+              expand = YES, fill = "both") 
+      
+      
+    for each_item in range(len(listData)): 
+          
+        list.insert(END, listData[each_item]) 
+        list.itemconfig(each_item, bg = "lime") 
+      
+    # Attach listbox to vertical scrollbar 
+    yscrollbar.config(command = list.yview) 
+    window.mainloop()     
+    
+def open_recordings_metadata():
+    
+    #Check current folder for matching files to open
+    recFilesList = [fileItem for fileItem in os.listdir() if RECDATA_FILE in fileItem]
+    print(recFilesList)
+    popup_listbox(
+        title = "Select Recording Metadata Files",
+        instruction = "Select a file below",
+        listData = recFilesList
+    )
+    #Generate Tkinter popup window with listbox and the ability to select
+    #multiple items in listbox
+    
+    
+    
 def download_participant_recordings():
     global acctRec
     global userEmail
@@ -941,7 +1002,11 @@ def download_participant_recordings():
     userEmail = userEmailAddr.get()
     print (f"{acctRec}")
     # TODO Eventually user can choose from multiple CSV files to open to scan through
+    open_recordings_metadata()  
+    
     logging(f"Checking if {userEmail} has any existing recordings they were a participant in")  
+    
+    
     
     for mtg in acctRec:
         #print(f"{mtg}")
@@ -975,8 +1040,18 @@ def download_participant_recordings():
         
     if notFound:
         logging(f"{userEmail} does not have any existing recordings they were a participant in")  
+
+
+def get_recording_dates():
+        try:
+            calDate = datetime.datetime.strptime(eTxtRecDates.get(), '%Y-%m')
+        except:
+            calDate = datetime.datetime.now()
+        
+        return calDate
     
-def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt = 0, next_page_token = None, recData = {}):
+
+def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt = 0, next_page_token = None, total = None, recData = {}):
     '''
     Retrieve all recording IDs from account
  
@@ -994,30 +1069,29 @@ def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt 
     
     
     if dateStart is None:
-        cnt = 0
-        
-        acctRec.clear()
-        
-        try:
-            calDate = datetime.datetime.strptime(eTxtRecDates.get(), '%Y-%m')
-        except:
-            calDate = datetime.datetime.now()
-        
-        dateStart = calDate.strftime("%Y-%m-01")
-        endDateRaw = datetime.date(calDate.year, calDate.month, calendar.monthrange(calDate.year, calDate.month)[-1])
-        
-        dateEnd = endDateRaw.strftime("%Y-%m-%d")
-        
         try:
             months = int(eRecMonths.get())
         except:
             months = 1
             
+       
+        cnt = 0
+        
+        acctRec.clear()
+        
+        calDate = get_recording_dates()
+        
+        dateStart = calDate.strftime("%Y-%m-01")
+        dateEnd = calDate.strftime("%Y-%m-15")
+           
+      
+            
         cancelActions(False)
          
+    MAX_PAGE_SIZE = 300
     
     query = {
-        "page_size":300, #DEFAULT IS 30 IN ZOOM
+        "page_size":MAX_PAGE_SIZE, #DEFAULT IS 30 IN ZOOM
         "next_page_token":next_page_token, 
         "from":dateStart,
         "to": dateEnd
@@ -1026,19 +1100,36 @@ def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt 
     
     if cancelAction is True:
         cancelAction = False
+        btnDownload["state"] = "normal"
         return
       
     #1.  Get all records of recordins on account based on time period
+        record = None
     try:
-        record = send_REST_request('acctRecordings', data=accountId, param=query, rType = "get", leaseTime = 5)
+        record = send_REST_request('acctRecordings', data=accountId, param=query, rType = "get", leaseTime = 6)
         recordsTotal = record["total_records"]
+        
+        if recordsTotal == 0:
+            send_REST_request('acctRecordings', data=accountId, param=query, rType = "get", leaseTime = 6)
+            recordsTotal = record["total_records"]
+            
     except:
         record = None
-    
+        recordsTotal = total
+
+
+
     if record is None:
-        logging("No recording metadata available or user info")
-        return
+        logging(f"No recording metadata available for pass #{cnt}") 
     else:
+        try:
+            steps = ((int(eRecMonths.get())) - months) + 1
+        except:
+            steps = 1
+            
+        logging(f"Starting recording metadata scan, step {steps}/{(int(eRecMonths.get()) * 3)}")        
+        next_page_token = record["next_page_token"]
+        
         calDate = datetime.datetime.strptime(dateStart, '%Y-%m-%d')
         logging(f"Reading Cloud Recording metadata for {calendar.month_name[calDate.month]}-{calDate.year}: ({cnt}/{recordsTotal})")
             
@@ -1090,58 +1181,91 @@ def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt 
                     acctRec[mtgId]["fileSize"].append(0)    
             
                 
-        
+    try:
         cnt += len(record["meetings"])
-        bar = int((cnt/recordsTotal)*100) 
-        progress_var.set(bar)
+    except:
+        #cnt += MAX_PAGE_SIZE
+        pass
         
-        next_page_token = record["next_page_token"]
+    if cnt >= recordsTotal:
+        calDate = get_recording_dates()
         
-
-
-        if next_page_token != "":
+        if dateEnd == calDate.strftime("%Y-%m-15"):
+            cnt = 0
+            next_page_token = ""
+            dateStart = calDate.strftime("%Y-%m-16")
+            endDateRaw = datetime.date(calDate.year, calDate.month, calendar.monthrange(calDate.year, calDate.month)[-1])
+            dateEnd = endDateRaw.strftime("%Y-%m-%d")
+            
+            try:
+                steps = ((int(eRecMonths.get())) - months) + 2
+            except:
+                steps = 2 
+                
+            logging(f"Starting recording metadata scan, step {steps}/{(int(eRecMonths.get()) * 3)}")
+        elif months < 1:
+            logging(f"Recording metadata scan completed")
+            btnDownload["state"] = "normal"
+            return
+        
+        
+    bar = int((cnt/recordsTotal)*100) 
+    progress_var.set(bar)
+    
+    #Check performance of this
+    root.update()
+    
+    if next_page_token != "" or cnt == 0:
+        get_account_recordings(
+            months = months,
+            dateStart = dateStart,
+            dateEnd = dateEnd,
+            cnt = cnt,
+            next_page_token=next_page_token,
+            total = recordsTotal,
+            recData = acctRec
+            )
+    else:
+        calDate = datetime.datetime.strptime(dateStart, '%Y-%m-%d')
+        dateStart = calDate.strftime("%Y-%m-01")
+        
+        try:
+            steps = ((int(eRecMonths.get())) - months) + 3
+        except:
+            steps = 3
+                
+        logging(f" Starting Participant scan, step {steps}/{(int(eRecMonths.get()) * 3)}")
+        logging(f"Reading Meeting participant emails for {len(acctRec)} meetings...")
+        get_meeting_participants(acctRec)
+        save_user_rec_metadata(acctRec,dateStart,dateEnd)
+        months = months - 1
+        if months > 0:
+            calDate = calDate.replace(
+                year = calDate.year if calDate.month > 1 else calDate.year - 1,
+                month = calDate.month - 1 if calDate.month > 1 else 12,
+                day = 1
+            )
+            
+            dateStart = calDate.strftime("%Y-%m-01")
+            dateEnd = calDate.strftime("%Y-%m-15")
+            
+            print (f"Months To Check: {months}, Next Batch:  From: {dateStart} To: {dateEnd}")
             get_account_recordings(
                 months = months,
                 dateStart = dateStart,
                 dateEnd = dateEnd,
-                cnt = cnt,
-                next_page_token=next_page_token,
+                cnt = 0,
+                next_page_token = None,
                 recData = acctRec
-                )
-        else:
-            logging(f"Reading Meeting participant emails for {len(acctRec)} meetings...")
-            get_meeting_participants(acctRec)
-            save_user_rec_metadata(acctRec,dateStart,dateEnd)
-            months = months - 1
-            if months > 0:
-                calDate = datetime.datetime.strptime(dateStart, '%Y-%m-%d')
-            
-                calDate = calDate.replace(
-                    year = calDate.year if calDate.month > 1 else calDate.year - 1,
-                    month = calDate.month - 1 if calDate.month > 1 else 12,
-                    day = 1
-                )
-                
-                dateStart = calDate.strftime("%Y-%m-01")
-                endDateRaw = datetime.date(calDate.year, calDate.month, calendar.monthrange(calDate.year, calDate.month)[-1])
-                dateEnd = endDateRaw.strftime("%Y-%m-%d")
-                print (f"Months To Check: {months}, Next Batch:  From: {dateStart} To: {dateEnd}")
-                get_account_recordings(
-                    months = months,
-                    dateStart = dateStart,
-                    dateEnd = dateEnd,
-                    cnt = 0,
-                    next_page_token = None,
-                    recData = acctRec
-                )
-            
-            #if months > 0:
-            #    pass
-            #    #TODO decrement month with logic and update start and end dates and iterate again through function
-            #else:
-            #    return        
-
+            )
         
+        #if months > 0:
+        #    pass
+        #    #TODO decrement month with logic and update start and end dates and iterate again through function
+        #else:
+        #    return        
+
+    
     
 def get_meeting_participants(recData, next_page_token = None, cnt = 0):
     '''
@@ -1187,6 +1311,8 @@ def get_meeting_participants(recData, next_page_token = None, cnt = 0):
             #logging(f"Reading Meeting participant emails for meeting #({cnt} out of {len(recData)})")                       
             bar = int((cnt/len(recData))*100) 
             progress_var.set(bar)
+            #Check performance of this
+            root.update()
             
             for participant in record["participants"]:
                 if participant["user_email"] != "":
@@ -1203,7 +1329,7 @@ def get_meeting_participants(recData, next_page_token = None, cnt = 0):
 
 def save_user_rec_metadata(recData,startDate,endDate):
     try:
-        with open(f'Zoom-UserRecMetaData-{startDate} to {endDate}.csv', 'w', encoding="utf-8", newline='') as csvFile:
+        with open(f'{RECDATA_FILE}-{startDate} to {endDate}.csv', 'w', encoding="utf-8", newline='') as csvFile:
             writer = csv.DictWriter(csvFile, fieldnames = ["MeetingID","Topic","StartTime","ShareLink","RecordingIDs","FileType","Host","Participants","ExtraMeetingID","DownloadURL","FileSize"])
             writer.writeheader()
             
@@ -4775,7 +4901,7 @@ colPosMax = 12
 root = Tk()
 root.option_add('*font', ('verdana', 8, 'bold'))
 root.configure(bg=colorScheme["3"])
-root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.12')
+root.title('Zeus Tool:  Zoom Enterprise User Support Tool v0.8.19')
 root.geometry("600x1050")
 root.resizable(height = 600, width = 1050)
 
@@ -5519,7 +5645,7 @@ btnUpdateLicensed = stdButtonStyle(frameSubMenuCntrl[2], text="Set Licensed", co
 btnUpdateBasic = stdButtonStyle(frameSubMenuCntrl[2], text="Set Basic", command=UpdateUser_Basic)
 btnUpdateWebinar = stdButtonStyle(frameSubMenuCntrl[2], text="Toggle Webinar", command=UpdateUser_Webinar)
 btnUpdateLargeMtg = stdButtonStyle(frameSubMenuCntrl[2], text="Toggle Large Mtg", command=UpdateUser_LargeMtg)
-btnDownload = stdButtonStyle(frameSubMenuCntrl[2], text="Participant Recordings DL", command=download_participant_recordings)
+btnDownload = stdButtonStyle(frameSubMenuCntrl[2], text="Participant Recordings DL", command=download_participant_recordings, state=DISABLED)
 btnUpdateDelete = stdButtonStyle(frameSubMenuCntrl[2], text="Delete User", command=UpdateUser_Delete, state=DISABLED)
 btnXferDelete = stdButtonStyle(frameSubMenuCntrl[2], text="Transfer & Delete", command=UpdateUser_Delete, state=DISABLED)
 btnDeactivate = stdButtonStyle(frameSubMenuCntrl[2], text="Deactivate", command=UpdateUser_Delete, state=DISABLED)
@@ -5755,11 +5881,16 @@ menuButtons(0)
 images = []
 
 
-
+#if __name__ == '__main__':
+#    t = threading.Timer(10.0, guiUpdate)
+#    t.start()
 
 #Testing
 #get_InactiveDate()
 #print(f"Local Time Coversion Check: {timeLocal('2020-06-08T21:59:43Z')}")
+
+ 
+
 mainloop()
 
 
