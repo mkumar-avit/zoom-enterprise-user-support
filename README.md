@@ -3,6 +3,8 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout 2021 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets and bug fixes.   My code is not very object-oriented as well so some fine tuning of code to get it aligned with more modern and Pythonic practices will eventually come.
 
+## January 29th, 2021 Update
+- Finish first release of opening CSV files with previous metadata scans, since scans can take time, being able to open a previous scan can help reduce the acount of time needed to search for data
 
 ## January 27th, 2021 Update
 - Fixes and improvements to last update along with a work in progress of opening CSV files of recording metadata.
