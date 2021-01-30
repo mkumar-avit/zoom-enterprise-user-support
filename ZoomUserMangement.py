@@ -104,6 +104,7 @@ API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
 RECDATA_FILE = "Zoom-UserRecMetaData"
+RECDATA_FIELDS = ["MeetingID","Topic","StartTime","ShareLink","RecordingIDs","FileType","Host","Participants","ExtraMeetingID","DownloadURL","FileSize"]
 API_FILE = 'ZoomAPI.json'
 SETTINGS_FILE = "Zoom Group Setting Tracking"
 ## GLOBAL VARIABLES ##
@@ -542,10 +543,7 @@ def openCredentials():
         logging("Invalid credentials file.")
  
 
-def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames = ""):
-    global cancelAction
-    csvData = []
-    
+def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames = ""):    
     try:
         root.filename = filedialog.askopenfilename(initialdir = "./",title = "Select file",filetypes = ((f"{fileDesc}",f"*.{fileType}"),("all files","*.*")))
         fileName = root.filename
@@ -553,10 +551,18 @@ def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames
         logging (f"Error opening file: {e}")
         fileName = fileDefault
 
+    return csvRead(fileName, fieldNames)
+    
+    
+def csvRead(fileName, fieldNames = ""):
+    global cancelAction
+    
     cancelActions(False)
+    csvData = []
+    
     try:
-        with open(fileName) as file:
-            logging (f"Open File: {root.filename}")
+        with open(fileName, encoding="utf-8", newline='') as file:
+            logging (f"Scanning file: {fileName}")
             readFile = csv.reader(file, delimiter=',')
             
             for row in readFile:
@@ -565,6 +571,8 @@ def csvOpen2(fileDefault="", fileType = "csv", fileDesc = "CSV file", fieldNames
                     break
                 csvData.append(row)
             
+            #Remove header row
+            csvData.pop(0)
             
             logging(f'Number of Entries opened {fileName}: {len(csvData)}')
             
@@ -946,37 +954,186 @@ def download_file(url, fileType, mtype = "", user = "", topic = "", topicId = ""
    #     logging(f"Error in download attempt method 3")
 
 
+def progress_bar_update(total = 100, increment = 1, reset = False):
+    global progressCounter
+    
+    if reset != True:
+        #cancelActions(True)
+        progressCounter += increment
+        bar = int((progressCounter/total)*100)
+        progress_var.set(bar)
+    else:
+        progress_var.set(0)
+        progressCounter = 0
+        #cancelActions(False)
+    
+    root.update()
+    
+    
+def popup_listbox_process(filesListBox, fileType = "recordings"):
+    global acctRec
+
+    fileList = [filesListBox.get(idx) for idx in filesListBox.curselection()]
+    logging(f"Files to be opened:  {fileList}")
+    
+    totalRecords = 0  
+    emails = []
+    fileData = []
+ 
+ 
+    #1 Open all files first
+    progress_bar_update(reset = True)
+    for fileCSV in fileList:
+        try:
+            fileData.append(csvRead(fileCSV,RECDATA_FIELDS))
+        except Exception as e:
+            logging("Error reading file: {e}")
+        
+        progress_bar_update(len(fileList))
+     
+    if fileType == "recordings":
+        acctRec.clear()
+        acctRec = {}
+        
+        logging("Processing all file data....")
+        
+        
+        
+        for fileRows in fileData:
+            progress_bar_update(reset = True)
+            for row in fileRows:
+               
+                try:
+                    mtgId = f"{row[0]}"
+                except:
+                    mtgId = 'null'
+                    
+                    
+                if mtgId not in acctRec:
+                    acctRec.update(
+                        {
+                            mtgId:
+                            {
+                                "topic":row[1],
+                                "timeStart":row[2],
+                                "share":row[3],
+                                "recId":row[4].replace("'","").strip('][').split(', '),
+                                "fileType":row[5].replace("'","").strip('][').split(', '),
+                                "host":row[6],
+                                "participants":row[7].replace("'","").strip('][').split(', '), 
+                                "mtgId":row[8].replace("'","").strip('][').split(', '),
+                                "download":row[9].replace("'","").strip('][').split(', '),
+                                "fileSize":row[10].replace("'","").strip('][').split(', ') 
+                            }    
+                        }
+                    )
+                    #print (f"Participants:{type(acctRec[mtgId]['participants'])}:  {acctRec[mtgId]['participants']}")
+                    
+                    try:
+                        for email in acctRec[mtgId]['participants']:
+                            if email not in emails and email is not None and email != "" and email != []:
+                                emails.append(email)
+                    except:
+                        print (f"Email {email} already exists in list")
+                        
+                        
+                    if row[6] != "" and row[6] not in emails:
+                        emails.append(row[6])
+                    
+                    progress_bar_update(len(fileRows))
+        print (f"****EMAIL LIST: {emails}")
+        emails.sort()
+
+            menuUserEmailValuesAddAll(emails)
+        btnDownload["state"] = "normal"
+    
+    destroy_all_subwindows()
+    
 def popup_listbox(title = "", instruction = "", listData = []):
-    window = Tk() 
-    window.title(title) 
+    global filesListBox
+    
+    popupListWindow = Toplevel(root)
+    popupListWindow.title(title) 
+
+    popupListWindow.configure(bg=colorScheme["3"])
+    popupListWindow.resizable(height = False, width = False)
+
+    lblPopup = stdLabelStyle(popupListWindow, text = f"{instruction}")
+    lblPopup.grid(
+        row = pos(0,rowPos),
+        column = posC(0,colPos),
+        )
+
+
+    frameFileBox = stdFrameControlStyle(popupListWindow, pady = 10)
+    
+    frameFileBox.grid(
+        row = pos(1,rowPos),
+        column= posC(0,colPos)
+    )
+
+
+    
+    sbFilesListBox= Scrollbar(
+        frameFileBox,
+        relief = "flat",
+        troughcolor = colorScheme['4']        
+        )     
+
+    listBoxFiles = Listbox(
+        frameFileBox,
+        selectmode = "multiple",  
+        yscrollcommand = sbFilesListBox.set,
+        setgrid = 1,
+        width = 60,
+        activestyle= 'dotbox',
+        bg= colorScheme['6'],
+        fg= colorScheme['3'],
+        selectbackground= colorScheme['2'],
+        highlightthickness=0,
+        relief = "flat",
+        cursor = "hand2",
+        font = stdFontStyle(size = 10, weight = "normal"),
+        bd = 0      
+    ) 
       
-    # for scrolling vertically 
-    yscrollbar = Scrollbar(window) 
-    yscrollbar.pack(side = RIGHT, fill = Y) 
+    listBoxFiles.grid(
+        row = rowPos,
+        column = posC(0,colPos),
+        sticky = W,
+        padx = 10,
+        pady = 10
+    )
+    
+    sbFilesListBox.grid(
+        row = rowPos,
+        column = posC(1,colPos),
+        rowspan=10,
+        sticky = N+S+E
+    )
+            
+    for each_item in range(len(listData)):           
+        listBoxFiles.insert(END, listData[each_item]) 
+        listBoxFiles.itemconfig(each_item, bg = colorScheme['6']) 
       
-    label = Label(window, 
-                  text = f"{instruction}:", 
-                  font = ("Times New Roman", 10),  
-                  padx = 10, pady = 10) 
-    label.pack() 
-    list = Listbox(window, selectmode = "multiple",  
-                   yscrollcommand = yscrollbar.set) 
-      
-    # Widget expands horizontally and  
-    # vertically by assigning both to 
-    # fill option 
-    list.pack(padx = 10, pady = 10, 
-              expand = YES, fill = "both") 
-      
-      
-    for each_item in range(len(listData)): 
-          
-        list.insert(END, listData[each_item]) 
-        list.itemconfig(each_item, bg = "lime") 
-      
-    # Attach listbox to vertical scrollbar 
-    yscrollbar.config(command = list.yview) 
-    window.mainloop()     
+    # Attach listbox to vertical scrollbar  
+    sbFilesListBox.config(command = listBoxFiles.yview)
+    
+    btnFinished = stdButtonStyle(\
+        popupListWindow,
+        text = 'Open Selected Files',
+        width = 30,
+        image = None,
+        command = lambda:popup_listbox_process(listBoxFiles)
+    )
+    
+    btnFinished.grid(
+        row = pos(1,rowPos),
+        column = posC(0,colPos),
+        sticky = N+S+E+W
+    )
+    
+    popupListWindow.mainloop()     
     
 def open_recordings_metadata():
     
@@ -985,7 +1142,7 @@ def open_recordings_metadata():
     print(recFilesList)
     popup_listbox(
         title = "Select Recording Metadata Files",
-        instruction = "Select a file below",
+        instruction = "Select file(s) below to open",
         listData = recFilesList
     )
     #Generate Tkinter popup window with listbox and the ability to select
@@ -1001,9 +1158,7 @@ def download_participant_recordings():
     notFound = True
     userEmail = userEmailAddr.get()
     print (f"{acctRec}")
-    # TODO Eventually user can choose from multiple CSV files to open to scan through
-    open_recordings_metadata()  
-    
+    # TODO Eventually user can choose from multiple CSV files to open to scan through    
     logging(f"Checking if {userEmail} has any existing recordings they were a participant in")  
     
     
@@ -1330,7 +1485,7 @@ def get_meeting_participants(recData, next_page_token = None, cnt = 0):
 def save_user_rec_metadata(recData,startDate,endDate):
     try:
         with open(f'{RECDATA_FILE}-{startDate} to {endDate}.csv', 'w', encoding="utf-8", newline='') as csvFile:
-            writer = csv.DictWriter(csvFile, fieldnames = ["MeetingID","Topic","StartTime","ShareLink","RecordingIDs","FileType","Host","Participants","ExtraMeetingID","DownloadURL","FileSize"])
+            writer = csv.DictWriter(csvFile, fieldnames = RECDATA_FIELDS)
             writer.writeheader()
             
             
@@ -3263,7 +3418,7 @@ def menuUserEmailValuesAddAll(data):
     except Exception as e:
         PrintException(e, 'Error updating user Email list')
         
-    logging('....Finished updating user email drop down list')
+    logging(f'....Finished updating user email drop down list with {len(userEmailList)} entries')
         
 
     
@@ -5127,9 +5282,13 @@ eLblLDAPPass = stdLabelStyle(frameSettings[-1], text="LDAP Password")
 eLDAPPass = stdEntryStyle(frameSettings[-1], show='*')
 
 eLblFileMgmt = stdLabelStyle(frameSettings[-1], text="File Management", theme = "title")
-eLblFolderPath = stdLabelStyle(frameSettings[-1], text="Default Folder")
+eLblFolderPath = stdLabelStyle(frameSettings[-1], text="Default Save Folder")
 eTxtFolderPath = stdEntryStyle(frameSettings[-1])
 eBtnFolderPath = stdButtonStyle(frameSettings[-1], text = "Default Folder", width = 12, command = FolderPath)
+
+
+eLblRecData = stdLabelStyle(frameSettings[-1], text="Recordings Metadata")
+eBtnRecData = stdButtonStyle(frameSettings[-1], text = "Select Files", width = 12, command = open_recordings_metadata)
 
 
 
@@ -5161,6 +5320,9 @@ eTxtFolderPath.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 eBtnFolderPath.grid(row = pos(1,rowPos), column = posC(1,0), sticky = W)
 
 eTxtFolderPath.insert(END,os.getcwd())
+
+eLblRecData.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eBtnRecData.grid(row = pos(1,rowPos), column = posC(1,0), sticky = W)
 
 logConfig = {}
 logConfig['timestamp'] = IntVar(value = 1)
