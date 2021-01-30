@@ -19,7 +19,7 @@ I will be working on updates to this sporadically throughout 2021 as other proje
 
 
 # Overview
-Standalone Python program that manages deprovisoning or relicensing users in Zoom to basic based on either an email list of users, or their last sign-in date.  It uses the TKinter module to provide a very basic GUI interface.  A code-signed Windows App will be forthcoming, and I may also generate a Mac version once the code moves into a "beta" state.
+Standalone Python program that manages deprovisoning or relicensing users in Zoom to basic based on either an email list of users, or their last sign-in date.  It uses the TKinter module to provide a very basic GUI interface.  A code-signed Windows App will be forthcoming, and I may also generate a Mac version once the code moves into a "beta" state.  The program has expanded overtime as a need arose for a new function to be automated.   Some functions may have also been introduced by Zoom over time and in some cases may be quicker to do via Zoom's web interface.
 
 Users need an API Key and API Secret with admin-level access from a JWT Token App in Zoom's marketplace.  The code will generate the JWT Token. 
 
@@ -66,47 +66,118 @@ The program will generate multiple files, based on your choice of actions in the
  -Zoom Retrieved User List.csv - backup of retrieve user data from Zoom, can be used as a basis to generate an update list that can be imported into the Zoom webportal
  
 #Button Functionality
-##Settings
+## Settings
 
-### Required Info
+### ACTION MENU ITEMS
 
 #### Open Credentials file
 (optional) Open a CSV file that contains the API Key, API Secret, Domain, LDAP Host LDAP Login, and LDAP Password.  This is not a recommended method since this is pulling data from a cleartext source.   May investigate alternatives in the future like LastPass integration.
+
 #### Account Info
 A quick way to test if the API Key and Secret are valid, should pull cloud storage and available license info and populate the status bar with the information.
 
+#### List Zoom User Roles
+Pulls zoom user roles and populates the User Level section roles drop down menu with the roles in the account 
+
+### FUNCTIONS
+### Zoom Communication Settings
 #### API Key
 API Key pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
 
 #### API Secret
 API Secret pulled from Zoom JWT app in Zoom Marketplace.  Will need account-level access (admin user typically or account owner)
 
+### Auto-Fill Settings
 #### Email Domain
 (optional) Enter your organization's domain, and and entries that are clicked in the log window that contain the domain will automatically populate the User Email field
 
-### LDAP Configuration
+### LDAP Settings
 #### LDAP Host
 Currently not used
-### LDAP Login
+#### LDAP Login
 Currently not used
-### LDAP Password
+#### LDAP Password
 Currently not used
+
+### File Management
+#### Default Save Folder
+Lists the path where all log files and content are stored
+
+#### Recordings Metadata
+Displays a popup with a list of files located in the default save folder path that contain previously pulled recording metadata
+
 
 ### Logging Options
-####Account Actions
-####Actions
-#####Retrieve all user data
-#####Open all user data
-#####Modify/Delete Users via CSV email list file
-#####Modify/Delete inactive users to Basic
-#####Backup user settings
-#####List Zoom user roles
+#### Timestamp
+Display timestamp in logging window and save with logs
+#### Wrap Lines
+Wrap log text in window and log file for better readability
+#### Display Inactive Users
+When scanning users, display users in log that are considered inactive
+#### Display Users in No Groups
+When scanning users, display users in log that are not associated with any Zoom Group
+#### Save Logs
+Automatically save logs to a timestamped file in the default folder path
+#### Click Line to Copy
+Selecting and highlighting black a line in the log will save the contents to the clipboard
+#### Debug Mode
+Display extended error messages and raw, parsed data responses from Zoom
+##### Testing Mode
+Prevent actions from triggering commands to Zoom
 
-### Options that prevent user updates
+
+## Account Level 
+### ACTION MENU ITEMS
+
+#### Retrieve all user data
+Retrieve all user data from Zoom
+
+#### Open all user data
+Open an existing file of previously retrieved user data (*Currently not functional)
+
+#### Modify/Delete Users via CSV email list file
+Open a CSV of just email addresses (can have a header) for license modification or deletion
+
+#### Modify/Delete inactive users to Basic
+Based on the inactivity data and other settings modify the active list of users' licenses in bulk
+
+#### Backup user settings
+Backup all user account settings to CSV, depending on the number of users in account this may take
+a long time to complete
+
+#### Update Custom Attribute for all filtered Users
+Update the value of a custom attribute for the filtered user
+
+#### Get all acct Recording Metadata
+Pull all account recording metadata for the month specified as the starting date, and then up to X number of months previous to that month based on the number of months entered
+
+### Options that prevent user updates (user filtering)
+#### Limit To
+Filters/Limits updates to users based on group (or no group)
+
 #### Change user to Basic (No Deletes)
 Checkbox will toggle to allow user deletes (when off), or update user to "Basic" license type (when on).  Button text will update in Action buttons that are applicable
 #### Check for Upcoming Meetings
 Checkbox will toggle checking if a user has an upcoming scheduled meeting in zoom, and prevent the user from being deleted/updated.   Button text will update in Action buttons that are applicable
+#### Check for Cloud Recordings
+Checkbox, that when enabled will prevent users within the prescribed timeframe that have cloud recordings from having their license modified in bulk processing
+#### Check for User Activity
+Checkbox, that when enabled will prevent users within the prescribed timeframe of last activity from having their acccount/license modified in bulk processing
+#### No. of Months to Check for Recordings
+Defaults to 6.  Number of months to review a users account for cloud recordings, the counting goes backward based on the starting date specified when searching metadata in the next field or for the current date when looking at modifying licenses.
+#### Date to Start Checking Recordings (YYYY-MM)
+Date to start checking recordings when reviewing cloud recording metadata in the format of  YEAR-MONTH
+#### Months to be considered still active
+Number of months a user needs to have activity (i.e. in a meeting) before the program flags the user as inactive (this is being deprecated and functionality is not guaranteed)
+#### Date of last login for an inactive user (mm/dd/yyyy)
+User is considered inactive for any point on or before this date and will be flagged for bulk license changes
+#### Restart Processing
+If user interrups a bulk license change operation, user can restart based on the email address entered
+#### Custom Attributes
+Select a custom attribute pulled during the "Account Info" action and enter a value for a mass update of filtered users to get the attribute change
+
+
+
 ### Log Window
 
 #### Log window
