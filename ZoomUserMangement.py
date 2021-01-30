@@ -66,32 +66,39 @@ Email Frame:
 '''
 
 ## IMPORTS ##
-import datetime
-import calendar
-import pytz
-import tzlocal
-from PIL import Image, ImageTk
-from io import BytesIO
+
+
+#from PIL import Image, ImageTk
+#from io import BytesIO
+import os, sys
+#basePath = os.path.dirname( os.path.abspath( sys.argv[0] ) )
+#sys.path.insert( 0, basePath )
+
 import csv
 import json
 import jwt
 import linecache
-import os
+
 import requests
+
 #from urllib.request import urlopen
 #from urllib.request import urlretrieve
 #import wget
 #import cgi
 #import cgitb
-import time
+import pytz
+import tzlocal
 import webbrowser
+import datetime
+import time
+import calendar
 from dateutil.relativedelta import relativedelta
 from dateutil import tz
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 
-import threading
+#import threading
 
 
 #cgitb.enable(display=0, logdir="/")
@@ -240,7 +247,7 @@ def logging(logText ,save=True, debugOnly = False):
             logText = f'{todayStr}{logText}'
          
             if len(logText) >= lineLenMax and logConfig['wrap'].get() == 1:
-                if text is not list:
+                if logText is not list:
                     if '{' in logText:
                         try:
                             logText = logText.split("Response:")
@@ -390,7 +397,7 @@ def _sub(origData, header, delimiter, values):
 
 
 def ldapAttributes():
-    from ldap3 import Server, Connection
+    #from ldap3 import Server, Connection
 
     s = Server('my_server')
     c = Connection(s, 'my_user', 'my_password')
@@ -706,20 +713,25 @@ def openRawUserData():
 def openAPIListDetailed():
     data = None
     from collections import OrderedDict
+    try:
+        with open('ZoomAPI-Detailed.json') as jsonFile:
+            #data = json.load(jsonFile, object_pairs_hook=OrderedDict)
+            data = json.load(jsonFile)
     
-    with open('ZoomAPI-Detailed.json') as jsonFile:
-        #data = json.load(jsonFile, object_pairs_hook=OrderedDict)
-        data = json.load(jsonFile)
+        
+        for item in data:
+            try:
+                data[item] = OrderedDict(sorted(data[item].items()))
+            except:
+                pass
+        
+        data = OrderedDict(sorted(data.items()))    
+        #for key, value in sorted(data.items(), key=lambda item: item[1])
     
-    for item in data:
-        try:
-            data[item] = OrderedDict(sorted(data[item].items()))
-        except:
-            pass
-    
-    data = OrderedDict(sorted(data.items()))    
-    #for key, value in sorted(data.items(), key=lambda item: item[1])
-    
+    except Exception as e:
+        logging(f"Zoom API File Issue: {e}")
+        
+        
     return data
 
 
@@ -1044,7 +1056,7 @@ def popup_listbox_process(filesListBox, fileType = "recordings"):
         print (f"****EMAIL LIST: {emails}")
         emails.sort()
 
-            menuUserEmailValuesAddAll(emails)
+        menuUserEmailValuesAddAll(emails)
         btnDownload["state"] = "normal"
     
     destroy_all_subwindows()
@@ -5035,13 +5047,21 @@ def apiListMenu(origin, variable = None):
     
     apiData = openAPIListDetailed()
     
-    for category in reversed(apiData):
-        lbAPI.insert(0, category)
+    try:
+        for category in reversed(apiData):
+            lbAPI.insert(0, category)
+
+        if len(apiData) > 15:
+            sbAPI.grid()
+        else:
+            sbAPI.grid_remove()
     
-    if len(apiData) > 15:
-        sbAPI.grid()
-    else:
+    except Exception as e:
+        print (f'API List Menu Error: {e}')
         sbAPI.grid_remove()
+        category = ""
+        
+
         
     apiMenuType = 'category'
     
