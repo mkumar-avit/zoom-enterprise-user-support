@@ -3,6 +3,11 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout 2021 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets and bug fixes.   My code is not very object-oriented as well so some fine tuning of code to get it aligned with more modern and Pythonic practices will eventually come.
 
+## April 16th, 2021 Update
+- Added ability to pull data using a different subaccount
+- Preset "Execute" button is now functional and will trigger simple presets
+- Fix with using PyJWT module update (will work with previous or latest version of PyJWT
+
 ## January 29th, 2021 Update
 - Finish first release of opening CSV files with previous cloud recording metadata scans, since scans can take time, being able to open a previous scan can help reduce the amount of time needed to search for data
 
