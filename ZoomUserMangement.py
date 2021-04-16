@@ -87,6 +87,7 @@ import requests
 #import cgi
 #import cgitb
 import pytz
+import ctypes
 import tzlocal
 import webbrowser
 import datetime
@@ -111,8 +112,9 @@ API_SCIM2_USER = 'https://api.zoom.us/scim2/Users'
 USER_DB_FILE = "ZoomRetrievedUserList.csv"
 EMAIL_FILE = 'email-list.csv'
 RECDATA_FILE = "Zoom-UserRecMetaData"
-RECDATA_FIELDS = ["MeetingID","Topic","StartTime","ShareLink","RecordingIDs","FileType","Host","Participants","ExtraMeetingID","DownloadURL","FileSize"]
+RECDATA_FIELDS = ["MeetingID","Topic","StartTime","ShareLink","RecordingIDs","FileType","Host","Participants","Names","ExtraMeetingID","DownloadURL","FileSize","Cameras","Mics"]
 API_FILE = 'ZoomAPI.json'
+ACCT_ID_ALT = None
 SETTINGS_FILE = "Zoom Group Setting Tracking"
 ## GLOBAL VARIABLES ##
 maxMonths = 0
@@ -193,8 +195,10 @@ apiURL = {
         'lockSettings': 'v2/accounts/@/lock_settings',
         'acctRecordings':'v2/accounts/@/recordings',
         'recRegistrants':'v2/meetings/@/recordings/registrants',
-        'mtgParticipants':'v2/past_meetings/@/participants'
+        'mtgParticipants':'v2/past_meetings/@/participants',
+        'db_mtgParticipants':'v2/metrics/meetings/@/participants'       
     }
+
 userDB = []
 userRawDB = {}
 groupDB = {}
@@ -212,6 +216,12 @@ def guiUpdate():
         root.update()
 
 
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
 
 
 
@@ -323,6 +333,8 @@ def FolderPath():
     eTxtFolderPath.insert(END, defaultFolder)
     os.chdir(defaultFolder)
     logging(f"Files will be stored in: {defaultFolder}")
+    logging(f"Trying to open API Command List File...")
+    openAPIListDetailed()
     #tkinter.filedialog.askdirectory(**options)
     #Prompt user to select a directory.
     #Additional keyword option:
@@ -503,7 +515,13 @@ def JWT_Token2(key,secret, leaseTime = 2, tokenOnly = False):
         
         encoded_jwt = jwt.encode(payload, secret, algorithm='HS256')
         
-        jwtToken = encoded_jwt.decode("utf-8")
+        
+        ## If pyjwt version > 2.0 than comment out the line
+        try:
+            jwtToken = encoded_jwt.decode("utf-8")
+        except:
+            jwtToken = encoded_jwt
+        
         
         if tokenOnly:
             return jwtToken
@@ -882,8 +900,17 @@ def date_month_processing(direction, dateStr):
         pass
         
 
-def download_file(url, fileType, mtype = "", user = "", topic = "", topicId = "", datePath = "", desc = ""):
+def download_file(url, fileExtension, mtype = "", user = "", topic = "", topicId = "", datePath = "", desc = ""):
     #jwtToken lease time should be in minutes to accomodate download time or maybe just the initial request?.  Maybe 10 minutes?
+    global cancelAction
+
+    cancelActions(False)
+    
+    if cancelAction is True:
+        cancelAction = False
+        btnDownload["state"] = "normal"
+        return    
+    
     
     try:
         API_KEY = eAPIKey.get()
@@ -906,7 +933,7 @@ def download_file(url, fileType, mtype = "", user = "", topic = "", topicId = ""
     ## generate destination folder
     # define the name of the directory to be created
     path = f"/{mtype}/{user}/{topic}/{datePath}"
-    fileName = f"{topic}-{datePath}-{desc}.{fileType}"
+    fileName = f"{topic}-{datePath}-{desc}.{fileExtension}"
     
     path = path.replace(":","")
     fileName = fileName.replace(":","")
@@ -915,12 +942,24 @@ def download_file(url, fileType, mtype = "", user = "", topic = "", topicId = ""
     
     
     
-    try:
-        os.makedirs(path, exist_ok=True)
-    except Exception as e:
-        logging (f"Creation of the directory {path} failed: {e}")
-    else:
-        logging (f"Successfully created the directory {path}")
+    if not is_admin(): 
+        try:
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        
+        except Exception as e:
+            logging (f"Could not reset app to elevate permissions: {e}")
+                    
+    if is_admin():
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            logging (f"Creation of the directory {path} failed: {e}")
+        else:
+            logging (f"Successfully created the directory {path}")
+
+    
+    
+
 
 
     if not os.path.isdir(path):
@@ -992,7 +1031,8 @@ def popup_listbox_process(filesListBox, fileType = "recordings"):
     emails = []
     fileData = []
  
- 
+    destroy_all_subwindows()
+    
     #1 Open all files first
     progress_bar_update(reset = True)
     for fileCSV in fileList:
@@ -1032,10 +1072,11 @@ def popup_listbox_process(filesListBox, fileType = "recordings"):
                                 "recId":row[4].replace("'","").strip('][').split(', '),
                                 "fileType":row[5].replace("'","").strip('][').split(', '),
                                 "host":row[6],
-                                "participants":row[7].replace("'","").strip('][').split(', '), 
-                                "mtgId":row[8].replace("'","").strip('][').split(', '),
-                                "download":row[9].replace("'","").strip('][').split(', '),
-                                "fileSize":row[10].replace("'","").strip('][').split(', ') 
+                                "participants":row[7].replace("'","").strip('][').split(', '),
+                                "names":row[8].replace("'","").strip('][').split(', '),
+                                "mtgId":row[9].replace("'","").strip('][').split(', '),
+                                "download":row[10].replace("'","").strip('][').split(', '),
+                                "fileSize":row[11].replace("'","").strip('][').split(', ') 
                             }    
                         }
                     )
@@ -1169,7 +1210,7 @@ def download_participant_recordings():
     
     notFound = True
     userEmail = userEmailAddr.get()
-    print (f"{acctRec}")
+    #print (f"{acctRec}")
     # TODO Eventually user can choose from multiple CSV files to open to scan through    
     logging(f"Checking if {userEmail} has any existing recordings they were a participant in")  
     
@@ -1192,7 +1233,7 @@ def download_participant_recordings():
             
             for fileURL in acctRec[mtg]["download"]:
                 idx = acctRec[mtg]["download"].index(fileURL)
-                fileType = acctRec[mtg]["fileType"][idx]
+                fileExtenson = acctRec[mtg]["fileExtension"][idx]
                 
                 download_file(
                     fileURL,
@@ -1231,7 +1272,7 @@ def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt 
     global acctRec
     global cancelAction
     
-    accountId = "me"
+    accountId = acct_id()
     pageSize = 300
     
     
@@ -1314,6 +1355,7 @@ def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt 
                             "fileType":[],
                             "host":item["host_email"],
                             "participants":[],
+                            "names":[],
                             "mtgId":[],
                             "share":"",
                             "download":[],
@@ -1433,7 +1475,54 @@ def get_account_recordings(months = None, dateStart = None, dateEnd = None, cnt 
         #    return        
 
     
+def get_meeting_unknown_participants(recData, meetingUUID, mtgType = "past", next_page_token = None, cnt = 0):
+    '''
+    Retrieve all unknown registrant IDs and host ID for each recording
+ 
+    Args:
+      userID (string): Zoom user ID value
+
+    Returns:
+      (dict) appends userIDs part of recording to recDict
+    '''
+    pageSize = 300        
+       
+    queryDB = {
+        "type": mtgType,
+        "page_size":300, #DEFAULT IS 30 IN ZOOM
+        "next_page_token":next_page_token,
+        "include_fields":"registrant_id",
+    }
+        
+        
+    try:
+        #Needs meeting UUID vs meeting ID to get a specific meeting instance
+        record_db = send_REST_request('db_mtgParticipants', data=meetingUUID, param=queryDB, rType = "get")
+        
+        recordsTotal = record["total_records"]
+        next_page_token = record["next_page_token"]
+        
+        #logging(f"Reading Meeting participant emails for meeting #({cnt} out of {len(recData)})")                       
+        bar = int((cnt/len(recData))*100) 
+        progress_var.set(bar)
+        #Check performance of this
+        root.update()
     
+        for participant in record["participants"]:
+            if participant["user_name"] != "":
+                recData[meetingUUID]["names"].append(participant["user_name"])
+            if participant["microphone"] != "":
+                recData[meetingUUID]["camera"].append(participant["microphone"])
+            if participant["camera"] != "":
+                recData[meetingUUID]["mic"].append(participant["camera"])
+        
+    except Exception as e:
+        #PrintException(e)
+        logging(f'Issue with:  {meetingUUID}, {e}')
+    
+ 
+
+
 def get_meeting_participants(recData, next_page_token = None, cnt = 0):
     '''
     Retrieve all registrant userIDs and host ID for each recording
@@ -1470,8 +1559,19 @@ def get_meeting_participants(recData, next_page_token = None, cnt = 0):
             "next_page_token":next_page_token, 
         }
         
+        queryDB = {
+            "type":"past",
+            "page_size":300, #DEFAULT IS 30 IN ZOOM
+            "next_page_token":next_page_token,
+            "include_fields":"registrant_id",
+        }
+        
+        
         try:
+            #Needs meeting UUID vs meeting ID to get a specific meeting instance
             record = send_REST_request('mtgParticipants', data=meetingUUID, param=query, rType = "get")
+            record_db = send_REST_request('db_mtgParticipants', data=meetingUUID, param=queryDB, rType = "get")
+            
             recordsTotal = record["total_records"]
             next_page_token = record["next_page_token"]
             
@@ -1484,6 +1584,7 @@ def get_meeting_participants(recData, next_page_token = None, cnt = 0):
             for participant in record["participants"]:
                 if participant["user_email"] != "":
                     recData[meetingUUID]["participants"].append(participant["user_email"])
+                    recData[meetingUUID]["names"].append(participant["name"])
             
         except Exception as e:
             #PrintException(e)
@@ -1511,6 +1612,7 @@ def save_user_rec_metadata(recData,startDate,endDate):
                     "FileType":recData[meetingID]["fileType"],
                     "Host":recData[meetingID]["host"],
                     "Participants":recData[meetingID]["participants"],
+                    "Name": recData[meetingID]["names"],
                     "ExtraMeetingID":recData[meetingID]["mtgId"],
                     "DownloadURL":recData[meetingID]["download"],
                     "FileSize":recData[meetingID]["fileSize"]
@@ -2766,7 +2868,7 @@ def get_group_settings(groupID, count = 0):
 
 def get_lock_settings():
     try:
-        acctID = "me"
+        acctID = acct_id()
         timeStart = time.time()
         acctSettings = send_REST_request('lockSettings', data = acctID, rType = "get")  
         timeEnd = time.time()            
@@ -2776,12 +2878,24 @@ def get_lock_settings():
         PrintException(e)
        
     return acctSettings
-          
+
+def acct_id():
+    try:
+        acctId = eAcctID.get()
+        
+        if acctId == "":
+            raise KeyError
+    except Exception as e:
+        acctId = "me"
+    
+    logging(f"Using AccountID: {acctId}")
+    return acctId
+    
 def get_acct_settings():
     acctSettings = {}
     
     try:
-        acctID = "me"
+        acctID = acct_id()
         timeStart = time.time()
         acctSettings = send_REST_request('acctSettings', data = acctID, rType = "get")
         acctSettings2 = send_REST_request('acctSettings', data = acctID, param = {"option":"meeting_authentication"}, rType = "get")
@@ -2853,18 +2967,21 @@ def populateCustomAttributes():
     userInfo = list_user_data()
     customAttribList.clear()
     
-    for user in userInfo['users']:
-        for attrib in user['custom_attributes']:
-            value = f"{attrib['name']}, {attrib['key']}"
-            customAttribList.append(value)     
+    try:
+        for user in userInfo['users']:
+            for attrib in user['custom_attributes']:
+                value = f"{attrib['name']}, {attrib['key']}"
+                customAttribList.append(value)     
+        
+        logging(f"Custom Attributes Found: {customAttribList}")        
+        customAttrib.set(customAttribList[0])
+        emenuAttrib['values'] = customAttribList
+        root.update()
     
-    logging(f"Custom Attributes Found: {customAttribList}")        
-    customAttrib.set(customAttribList[0])
-    emenuAttrib['values'] = customAttribList
-    root.update()
-    
-    return customAttribList
-
+        return customAttribList
+    except Exception as e:
+        logging(f"Error pulling custom attributes: {e}")
+        return ""
     
 def list_user_data(records = 1, pageNumber = 0):
     """Retrieve page of user records (list users zoom api command)
@@ -3295,7 +3412,7 @@ def getAccountInfo(desc):
     planInfo = \
         send_REST_request(\
             apiType ='plan',
-            data = "me",
+            data = acct_id(),
             rType = "get",
             note=desc,
         )
@@ -3942,14 +4059,48 @@ def update_user_attrib(userId, name, key, value):
     send_REST_request('user', data=userId, body = apiBody, rType = "patch")  
 
     
-def presetCommand(presetIdx, command):
-    pass
+def presetCommand(presetName, presetIdx, command):
+    
+    logging(f"Triggering {command} for {presetName}")
+    presetData = presets[presetName]
+    
+    if command == "execute":
+        for item in presetData:
+            try:
+                tempDebug = logConfig['debug'].get()
+                logConfig['debug'].set(1)
+                response = \
+                    send_REST_request(\
+                        apiType = item["url"],
+                        body =  item.get('jsonBody', None),
+                        param = item.get('jsonParam', None),
+                        rType = item.get('method', None),
+                        note= f"Custom API preset step for {presetName}",
+                    )
+                
+                logConfig['debug'].set(tempDebug)
+                
+            except Exception as e:
+                logging(f"Error: {e}")
+                response = None            
+                #"index":len(presets[txtName]) + 1,
+                #"method":RESTmethod.get(),
+                #"url":url,
+                #"parameters":jsonParam,
+                #"body":jsonBody,
+                #"ids":txtIDs,
+                #"chain":{},
+                #"delay":0,
+                #"response":{}
+       
+    
 
 def buildPresetButton(presetName, menu_origin, origin, JSONtxt = ""):
     global btnMenu
     global frameSubMenuCtnrl
     global frameControls
     global menuButtonList
+    global btnPresetActions
     
         
     if presetName not in menuButtonList and presetName != "":
@@ -3991,7 +4142,7 @@ def buildPresetButton(presetName, menu_origin, origin, JSONtxt = ""):
         text = 'Execute',
         width = 20,
         image = None,
-        command = lambda:presetCommand(idx, "execute")
+        command = lambda:presetCommand(presetName, idx, "execute")
     )
     
     btnAction[1] = stdButtonStyle(\
@@ -3999,7 +4150,7 @@ def buildPresetButton(presetName, menu_origin, origin, JSONtxt = ""):
         text = 'Update',
         width = 20,
         image = None,
-        command = lambda:presetCommand(idx, "update")
+        command = lambda:presetCommand(presetName, idx, "update")
     )
     
     btnAction[2] = stdButtonStyle(\
@@ -4007,12 +4158,18 @@ def buildPresetButton(presetName, menu_origin, origin, JSONtxt = ""):
         text = 'Delete',
         width = 20,
         image = None,
-        command = lambda:presetCommand(idx, "delete")
+        command = lambda:presetCommand(presetName,idx, "delete")
     )
+    
+    
     stdButtonActionGrid(btnAction[0])
     stdButtonActionGrid(btnAction[1])
     stdButtonActionGrid(btnAction[2])
-    #4. Populate controls section with standard content (textbox)
+    
+    #temporary button data created, need to create permanenet button data in list or dict
+    
+    
+    #4. Populate controls section with standard content (textbox)    
     eLblTemp = stdLabelStyle(frameControls[idx], text= f"PRESET SCRIPT {presetName.upper()}", theme = "title")
     eTxtTemp = stdTextStyle(frameControls[idx], text = JSONtxt)
     eLblTemp.grid(row = 0, sticky = N + W)
@@ -5285,10 +5442,17 @@ frameSettings[-1].grid(\
 
 
 eLblAPI = stdLabelStyle(frameSettings[-1], text="Zoom Communication", theme = "title")
-eAPIKey = stdEntryStyle(frameSettings[-1])
+
+
+elblJWTHelp = stdLabelLinkStyle(frameSettings[-1], text="Where do I get this?")
+elblJWTHelp.bind("<Button-1>", lambda e: urlOpen("https://marketplace.zoom.us/docs/guides/build/jwt-app#:~:text=To%20register%20your%20app%2C%20visit,type%20and%20click%20on%20Create."))
+
 eLblAPIKey = stdLabelStyle(frameSettings[-1], text="API Key*")
+eAPIKey = stdEntryStyle(frameSettings[-1])
 eLblAPISecret = stdLabelStyle(frameSettings[-1], text="API Secret*")
 eAPISecret = stdEntryStyle(frameSettings[-1], show='*')
+eLblAcctID = stdLabelStyle(frameSettings[-1], text="Alternate Account")
+eAcctID = stdEntryStyle(frameSettings[-1])
 eLblDomainInfo = stdLabelStyle(frameSettings[-1], text="Auto-Fill Settings", theme = "title")
 eLblDomain =  stdLabelStyle(frameSettings[-1], text="Email Domain")
 eDomain = stdEntryStyle(frameSettings[-1])
@@ -5314,11 +5478,17 @@ eBtnRecData = stdButtonStyle(frameSettings[-1], text = "Select Files", width = 1
 
 
 eLblAPI.grid(row = pos(0,rowPos), column = posC(0,colPos), sticky = NSEW)
+elblJWTHelp.grid(row = pos(1,rowPos), column= posC(0,colPos), columnspan=2, sticky = E)
+
 eLblAPIKey.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
 eAPIKey.grid(row = rowPos, column = posC(1,colPos), sticky = W)
 
 eLblAPISecret.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
 eAPISecret.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
+eLblAcctID.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
+eAcctID.grid(row = rowPos, column = posC(1,colPos), sticky = W)
+
 
 eLblDomainInfo.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = NSEW)
 eLblDomain.grid(row = pos(1,rowPos), column = posC(0,colPos), sticky = E)
@@ -5590,6 +5760,7 @@ lblStatusAPI.grid(\
 
 
 btnMenu = []
+btnAction = []
 menuButtonList = ['Settings', 'Account Level', 'User Level', 'Custom API', 'LDAP']
 
 for btnItem in menuButtonList:
