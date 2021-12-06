@@ -3,28 +3,9 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout 2021 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets and bug fixes.   My code is not very object-oriented as well so some fine tuning of code to get it aligned with more modern and Pythonic practices will eventually come.
 
-## December 6th, 2021 Update
+## Lates Update: December 6th, 2021 Update
 - Added ability to pull all recordings for specified user
 - Added ability to copy all applicable settings from a group or subaccount into another group in the main account.
-## April 16th, 2021 Update
-- Added ability to pull data using a different subaccount
-- Preset "Execute" button is now functional and will trigger simple presets
-- Fix with using PyJWT module update (will work with previous or latest version of PyJWT
-
-## January 29th, 2021 Update
-- Finish first release of opening CSV files with previous cloud recording metadata scans, since scans can take time, being able to open a previous scan can help reduce the amount of time needed to search for data
-
-## January 27th, 2021 Update
-- Fixes and improvements to last update along with a work in progress of opening CSV files of recording metadata.
-## January 26th, 2021 Update
-- Added ability to retrieve account cloud recording metadata and find cloud recordings if the user was a participant in the meeting.  This may take time to do if there are many cloud recordings on the account.  Directory creation isn't effective yet and button disabling will be needed based on sequence (scan metadata, find user in those meetings).
-
-## November 24th, 2020 Update
-- Allow custom attribute values to be set to group of users based on the filtering set in the Account actions page.  Minor update with Cloud storage readout to include overage amount on paid plans
-- Updated Custom Attributes combo menu on Account Actions page to populate with values after triggering the Account Info button on the settings page. 
-- Added account lock settings to be pulled and added into group settings file.  Also added timestamp to group settings file to be able to track changes over time.
-- Working on custom API presets, still a work in progress so it is not fully functional nor does the gui have all the finalized features yet.
-
 
 # Overview
 Standalone Python program that manages deprovisoning or relicensing users in Zoom to basic based on either an email list of users, or their last sign-in date.  It uses the TKinter module to provide a very basic GUI interface.  A code-signed Windows App will be forthcoming, and I may also generate a Mac version once the code moves into a "beta" state.  The program has expanded overtime as a need arose for a new function to be automated.   Some functions may have also been introduced by Zoom over time and in some cases may be quicker to do via Zoom's web interface.
@@ -249,3 +230,24 @@ Toggles to either assign or remove a Large Meeting license for user
 
 #### Delete
 Button to Delete user from Zoom account (enabled when the checkbox "Change user to Basic (No Deletes)" is disabled) 
+
+# Previous Updates
+## April 16th, 2021 Update
+- Added ability to pull data using a different subaccount
+- Preset "Execute" button is now functional and will trigger simple presets
+- Fix with using PyJWT module update (will work with previous or latest version of PyJWT
+
+## January 29th, 2021 Update
+- Finish first release of opening CSV files with previous cloud recording metadata scans, since scans can take time, being able to open a previous scan can help reduce the amount of time needed to search for data
+
+## January 27th, 2021 Update
+- Fixes and improvements to last update along with a work in progress of opening CSV files of recording metadata.
+## January 26th, 2021 Update
+- Added ability to retrieve account cloud recording metadata and find cloud recordings if the user was a participant in the meeting.  This may take time to do if there are many cloud recordings on the account.  Directory creation isn't effective yet and button disabling will be needed based on sequence (scan metadata, find user in those meetings).
+
+## November 24th, 2020 Update
+- Allow custom attribute values to be set to group of users based on the filtering set in the Account actions page.  Minor update with Cloud storage readout to include overage amount on paid plans
+- Updated Custom Attributes combo menu on Account Actions page to populate with values after triggering the Account Info button on the settings page. 
+- Added account lock settings to be pulled and added into group settings file.  Also added timestamp to group settings file to be able to track changes over time.
+- Working on custom API presets, still a work in progress so it is not fully functional nor does the gui have all the finalized features yet.
+
