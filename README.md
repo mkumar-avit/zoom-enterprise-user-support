@@ -3,7 +3,7 @@
 # Developer Comments
 I will be working on updates to this sporadically throughout 2021 as other projects have my attention, with a couple needs-based updates with user groups and custom user tags/attributes and then I will be focusing on custom presets and bug fixes.   My code is not very object-oriented as well so some fine tuning of code to get it aligned with more modern and Pythonic practices will eventually come.
 
-## Lates Update: December 6th, 2021 Update
+## Latest Update: December 6th, 2021 Update
 - Added ability to pull all recordings for specified user
 - Added ability to copy all applicable settings from a group or subaccount into another group in the main account.
 
