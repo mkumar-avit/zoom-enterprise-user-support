@@ -5,7 +5,7 @@ I will be working on updates to this sporadically throughout 2021 as other proje
 
 ## December 6th, 2021 Update
 - Added ability to pull all recordings for specified user
-- Added ability to copy all settings from a group or subaccount into another group in the main account.
+- Added ability to copy all applicable settings from a group or subaccount into another group in the main account.
 ## April 16th, 2021 Update
 - Added ability to pull data using a different subaccount
 - Preset "Execute" button is now functional and will trigger simple presets
